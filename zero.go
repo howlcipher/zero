@@ -602,7 +602,7 @@ func generateStatementRaw(node *Node, reqVar string, depth int) string {
 		if valNode.Type == "STRING" {
 			return fmt.Sprintf("		return %q", valNode.Value)
 		} else {
-			return fmt.Sprintf("		return %s", valNode.Value)
+			return fmt.Sprintf("		return %s", generateStatementRaw(valNode, reqVar, depth+1))
 		}
 	} else if head == "res_json" {
 		if len(node.Children) != 3 {
