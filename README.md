@@ -12,6 +12,10 @@ You might wonder: *If Zero just compiles into Go, why not have the AI write Go d
 
 Zero combines the **predictability and simplicity of S-expressions** (for the AI to write) with the **performance, safety, and ecosystem of Go** (for the server to run).
 
+### How much does writing Zero actually cost, compared to Go, Python, Node.js, C#, and Java?
+
+See [`docs/language_write_cost_benchmark.md`](docs/language_write_cost_benchmark.md) — a measured (not estimated) comparison of LLM write-time and token cost across all six languages, using the same fixed set of task prompts, with every program actually compiled and run. Zero wins clearly on its designed niche (HTTP/JSON handlers) and is mid-pack on tokens overall; the benchmark also reports where it currently loses and the two transpiler bugs discovered while building it.
+
 ## Project Roadmap & Future Home
 
 Zero has evolved from a local script into a standalone transpiler toolchain. To truly achieve its goal of being an AI-first language, **Zero is slated to be moved into its own independent repository**. 

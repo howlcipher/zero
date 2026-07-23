@@ -164,6 +164,24 @@ pre code {
   color: var(--fg-color);
 }
 
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 1rem 0;
+}
+
+th, td {
+  border: 1px solid var(--border-color);
+  padding: 0.5rem 0.75rem;
+  text-align: left;
+}
+
+th {
+  font-family: 'VT323', 'Courier New', Courier, monospace;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
 blockquote {
   border-left: 4px solid var(--border-color);
   margin: 1.5rem 0;
