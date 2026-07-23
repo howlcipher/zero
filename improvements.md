@@ -38,6 +38,10 @@ Pending rows are ranked by a diminishing-returns score:
 | 13 | [Add File Inclusions (include)](#13-add-file-inclusions-include) | Done | 2.33 (7×1.0÷3) | Sonnet 3.5 | Gemini 1.5 Pro | Prevents massive monolithic `.zero` files by allowing modular codebases. |
 | 14 | [Add Basic Math and Logic Operators](#14-add-basic-math-and-logic-operators) | Done | — | Sonnet 3.5 | Gemini 1.5 Pro | Necessary for computing values natively in Zero instead of relying entirely on DB logic. |
 | 15 | [Add Middleware Support](#15-add-middleware-support) | Done | 0.41 (5×0.25÷3) | Sonnet 3.5 | Gemini 1.5 Pro | Required for adding authentication and request logging across routes. |
+| 35 | [Add LLM-powered Type Coercion (fuzzy_cast)](#35-add-llm-powered-type-coercion-fuzzy_cast) | Pending | 2.00 (8×1.0÷4) | Sonnet 3.5 | Gemini 1.5 Pro | Universal parser using LLM structured outputs to map messy, unstructured text to strict structs. |
+| 36 | [Add Intent-based Validation (assert_semantic)](#36-add-intent-based-validation-assert_semantic) | Pending | 2.00 (6×1.0÷3) | Sonnet 3.5 | Gemini 1.5 Pro | Enforces complex, qualitative natural language boundaries effortlessly using zero-shot prompts. |
+| 34 | [Add Semantic Routing (semantic_match)](#34-add-semantic-routing-semantic_match) | Pending | 1.40 (7×1.0÷5) | Sonnet 3.5 | Gemini 1.5 Pro | Natively understands intent, replacing brittle traditional conditional routing and regexes. |
+| 37 | [Add Just-In-Time Function Generation (lazy_synthesize)](#37-add-just-in-time-function-generation-lazy_synthesize) | Pending | 0.71 (5×1.0÷7) | Sonnet 3.5 | Gemini 1.5 Pro | Defers boilerplate generation to runtime, allowing AI to focus only on high-level logic. |
 
 ## Details
 
@@ -115,6 +119,26 @@ Pending rows are ranked by a diminishing-returns score:
 * **Description:** Introduce a `(middleware auth_func)` block that can wrap a set of `(route ...)` blocks.
 * **Why:** Modern APIs require authentication headers, logging, and CORS handling. Middleware is the standard pattern for this.
 * **Impact:** 5/10 (Medium).
+
+### 34. Add Semantic Routing (semantic_match)
+* **Description:** A control flow structure that routes execution based on the semantic proximity (intent and meaning) of an input string compared to a set of natural language descriptions.
+* **Why:** Natively understands intent. Acknowledges that human language is fuzzy and allows the code to handle it gracefully without exhaustive mapping or complex regexes.
+* **Impact:** 7/10 (High - unlocks intent-based routing).
+
+### 35. Add LLM-powered Type Coercion (fuzzy_cast)
+* **Description:** A casting function `fuzzy_cast[T]` that uses structured-output LLM APIs to automatically coerce messy, unstructured text into a strictly typed struct `T`.
+* **Why:** Traditional serialization requires perfect 1:1 schema matches. This acts as a universal, intelligent parser that infers required mapping.
+* **Impact:** 8/10 (High - eliminates brittle parsing code).
+
+### 36. Add Intent-based Validation (assert_semantic)
+* **Description:** An assertion primitive that evaluates qualitative, subjective natural language conditions against a variable. E.g. `assert_semantic(user_bio, "is professional")`.
+* **Why:** Allows the code to enforce complex, qualitative boundaries effortlessly, removing the need for massive heuristic functions.
+* **Impact:** 6/10 (Medium - powerful for data safety).
+
+### 37. Add Just-In-Time Function Generation (lazy_synthesize)
+* **Description:** A declarative primitive for defining a function using only its signature and a natural language docstring. The implementation is dynamically generated the first time it is invoked.
+* **Why:** AI writing the language doesn't have to waste tokens generating mundane utility functions, delegating implementation to the runtime.
+* **Impact:** 5/10 (Medium - innovative but complex to execute).
 
 ---
 
