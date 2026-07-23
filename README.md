@@ -244,3 +244,143 @@ Zero supports Test-Driven Development natively. You can include `(test "descript
 
 > Note: as of 2026-07-23, `return` supports inline compound expressions like `(return (+ a b))` and `(return (call f x))` directly (bug #13, fixed) — no need to bind through a `let` first. Single-branch `if` with no `else`, shown above, was fixed as bug #16. `if` conditions still only accept a flat `(op a b)` comparison — `and`/`or` and nested arithmetic in the condition itself are not yet supported (bug #18, pending). See `bugs.md` for current status.
 
+### Database & Persistence
+
+Zero provides native primitives `db_connect` and `sql_query` for managing database connections and executing SQL statements. They transpile directly to Go's standard `database/sql` package calls.
+
+```lisp
+(cli_app
+  ;; Note: Live database connections require importing a Go driver (e.g. (import "github.com/lib/pq"))
+  (db_connect db "postgres" "host=localhost dbname=test")
+  (sql_query db "SELECT 1")
+)
+```
+
+### Modularity
+
+Zero supports importing standard Go packages with `import` and composable file modularity with `include`. An `(include "filename.zero")` block splices module route definitions and functions into the host file at transpile time.
+
+```lisp
+(http_server 8080
+  (import "strings")
+  (include "routes.zero")
+  (route "/" (lambda (req)
+    (let (msg (call strings.ToUpper "welcome"))
+      (res 200 "text/plain" msg)
+    )
+  ))
+)
+```
+
+### Collections & Mutability
+
+In-memory slices and dictionaries can be mutated directly using `append` (for appending list items), `map_set` (for assigning dictionary key-value pairs), and `map_delete` (for removing dictionary keys).
+
+```lisp
+(cli_app
+  (let (my_list (list "1" "2" "3"))
+    (do
+      (append my_list "4")
+      (print "List:" my_list)
+    )
+  )
+  (let (my_dict (dict ("a" "1") ("b" "2")))
+    (do
+      (map_set my_dict "c" "3")
+      (map_delete my_dict "a")
+      (print "Dict:" my_dict)
+    )
+  )
+)
+```
+
+### String Manipulation & Regex
+
+Zero includes string utilities for splitting, joining, and pattern matching text via `str_split`, `str_join`, and `regex_match` (which transpiles to Go's `regexp.MatchString`).
+
+```lisp
+(cli_app
+  (let (joined (str_join (str_split "hello world" " ") "-"))
+    (print "Joined string:" joined)
+  )
+  (try_let (matched (regex_match "^[a-z]+$" "hello"))
+    (catch err (print "Regex error:" err))
+    (print "Regex matched:" matched)
+  )
+)
+```
+
+### Security & Auth Middleware
+
+HTTP servers can intercept and protect routes using `middleware` blocks that read environment variables via `env` and call `(next)` to pass execution down the handler stack.
+
+```lisp
+(http_server 8080
+  (middleware (lambda (mreq)
+    (let (token (env "API_TOKEN"))
+      (if (= token "secret-key")
+        (next)
+        (res 403 "text/plain" "Forbidden")
+      )
+    )
+  )
+    (route "/protected" (lambda (req)
+      (res 200 "text/plain" "Welcome to the protected route!")
+    ))
+  )
+)
+```
+
+### Concurrency, Networking & Control Flow
+
+Zero provides primitives for asynchronous background execution (`spawn`), HTTP requests (`fetch`), request rate limiting (`rate_limit`), automatic retry policies (`retry`), and value matching (`match`).
+
+```lisp
+(cli_app
+  (spawn (lambda ()
+    (print "Background task running")
+  ))
+
+  (try_let (body (fetch "https://example.com" "GET"))
+    (catch err (print "Fetch error:" err))
+    (print "Fetched response bytes")
+  )
+
+  (rate_limit "10/s"
+    (print "Rate-limited action")
+  )
+
+  (retry 3
+    (print "Retrying action")
+  )
+
+  (let (status 200)
+    (match status
+      (200 (print "Success"))
+      (404 (print "Not Found"))
+      (default (print "Unknown status"))
+    )
+  )
+)
+```
+
+### Typed Structs & Field Access
+
+In addition to struct declarations, Zero allows parsing JSON payloads into typed struct instances and accessing their fields directly using dot notation (`instance.Field`).
+
+```lisp
+(http_server 8080
+  (struct UserPayload (Name string) (Role string))
+  (route "/user" (lambda (req)
+    (try_let (user (parse_json UserPayload req.body))
+      (catch err (res 400 "text/plain" "Invalid JSON"))
+      (do
+        (print "User:" user.Name "Role:" user.Role)
+        (res_json 200 user)
+      )
+    )
+  ))
+)
+```
+
+
