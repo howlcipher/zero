@@ -42,6 +42,10 @@ Pending rows are ranked by a diminishing-returns score:
 | 36 | [Add Intent-based Validation (assert_semantic)](#36-add-intent-based-validation-assert_semantic) | Pending | 2.00 (6×1.0÷3) | Sonnet 3.5 | Gemini 1.5 Pro | Enforces complex, qualitative natural language boundaries effortlessly using zero-shot prompts. |
 | 34 | [Add Semantic Routing (semantic_match)](#34-add-semantic-routing-semantic_match) | Pending | 1.40 (7×1.0÷5) | Sonnet 3.5 | Gemini 1.5 Pro | Natively understands intent, replacing brittle traditional conditional routing and regexes. |
 | 37 | [Add Just-In-Time Function Generation (lazy_synthesize)](#37-add-just-in-time-function-generation-lazy_synthesize) | Pending | 0.71 (5×1.0÷7) | Sonnet 3.5 | Gemini 1.5 Pro | Defers boilerplate generation to runtime, allowing AI to focus only on high-level logic. |
+| 41 | [Add Stochastic Control Flow](#41-add-stochastic-control-flow) | Pending | 0.29 (2×1.0÷7) | Sonnet 3.5 | Gemini 1.5 Pro | Introduces fuzzy logic natively; deferred as non-essential for initial MVP. |
+| 38 | [Add Swarm Primitives](#38-add-swarm-primitives) | Pending | 0.25 (2×1.0÷8) | Sonnet 3.5 | Gemini 1.5 Pro | Extremely advanced futurist concept; deferred to maintain MVP scope. |
+| 39 | [Add Teleological Execution](#39-add-teleological-execution) | Pending | 0.25 (2×1.0÷8) | Sonnet 3.5 | Gemini 1.5 Pro | Radical paradigm shift, non-critical enhancement deferred from MVP. |
+| 40 | [Add Auto-Mutating Runtime](#40-add-auto-mutating-runtime) | Pending | 0.12 (1×1.0÷8) | Sonnet 3.5 | Gemini 1.5 Pro | Highly experimental runtime evolution; deferred per strict MVP boundaries. |
 
 ## Details
 
@@ -139,6 +143,26 @@ Pending rows are ranked by a diminishing-returns score:
 * **Description:** A declarative primitive for defining a function using only its signature and a natural language docstring. The implementation is dynamically generated the first time it is invoked.
 * **Why:** AI writing the language doesn't have to waste tokens generating mundane utility functions, delegating implementation to the runtime.
 * **Impact:** 5/10 (Medium - innovative but complex to execute).
+
+### 38. Add Swarm Primitives
+* **Description:** Introduces autonomous subagents as first-class concurrency objects. Developers orchestrate a swarm of agents using primitives like `(spawn_agent "Researcher" (task "find sources"))` that communicate via typed message-passing channels and autonomously negotiate tasks.
+* **Why:** Concurrency shifts from deterministic CPU scheduling to non-deterministic, autonomous orchestration, breaking conventional rules and allowing agents to independently verify upstream outputs.
+* **Impact:** 2/10 (Low - extremely advanced, deferred for strict MVP scoping).
+
+### 39. Add Teleological Execution
+* **Description:** A goal-driven syntax where developers define a target state (e.g., `(achieve (is_sorted list) (using "quick sort algorithm"))`) rather than imperative steps. The runtime acts as a solver to dynamically search for the execution path and execute necessary steps.
+* **Why:** Abandons imperative control flow entirely. Code becomes a set of constraints and objectives, making execution a continuous planning and state-space search process.
+* **Impact:** 2/10 (Low - radical shift, deferred for MVP).
+
+### 40. Add Auto-Mutating Runtime
+* **Description:** A self-rewriting primitive `(optimize_block ...)` that monitors execution metrics and automatically employs an LLM to rewrite and hot-swap its underlying Go implementation at runtime if bottlenecks are detected.
+* **Why:** Code becomes active and evolutionary in production rather than immutable, natively incorporating model evaluation and code generation into the execution cycle.
+* **Impact:** 1/10 (Low - highly experimental).
+
+### 41. Add Stochastic Control Flow
+* **Description:** Natively handles uncertainty in the AST. Conditions evaluate to probability distributions, allowing control flow primitives like `(if (> (confidence (is_fraud tx)) 0.95) ...)` to branch based on statistical certainty.
+* **Why:** Eliminates hardcoded heuristics by bringing fuzzy logic directly into the core execution loop, perfectly matching the probabilistic nature of AI models.
+* **Impact:** 3/10 (Low/Medium - complex but powerful for AI).
 
 ---
 
