@@ -1,0 +1,15 @@
+(cli_app
+	(let (my_list (list "1" "2" "3"))
+		(do
+			(append my_list "4")
+			(print "List is:" my_list)
+		)
+	)
+	(let (my_dict (dict ("a" "1") ("b" "2")))
+		(do
+			(map_set my_dict "c" "3")
+			(map_delete my_dict "a")
+			(print "Dict is:" my_dict)
+		)
+	)
+)

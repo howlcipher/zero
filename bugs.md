@@ -16,9 +16,9 @@ Pending bugs carry the same diminishing-returns score defined in `improvements.m
 | 6 | [Include Paths Relative to File](#6-include-paths-relative-to-file) | Done (2026-07-22) | 6.0 (6×1÷1) | Sonnet 3.5 | Gemini 1.5 Pro | `(include "file.zero")` uses current working directory rather than resolving paths relative to the file doing the inclusion. |
 | 7 | [defun Typing Rigidness](#7-defun-typing-rigidness) | Done (2026-07-22) | 1.75 (7×1÷4) | Sonnet 3.5 | Gemini 1.5 Pro | All `defun` arguments strictly compile to Go `string` types, breaking if we try to pass an `*http.Request` or `int` to a function. |
 | 8 | [try_let Error Interception Rigidness](#8-try_let-error-interception-rigidness) | Done (2026-07-23) | 1.66 (5×1÷3) | Sonnet 3.5 | Gemini 1.5 Pro | `try_let` is currently hardcoded to only support `parse_json` as the error-returning function. Needs generalization. |
-| 9 | [Depth Limit Crash via `let` Chaining](#9-depth-limit-crash-via-let-chaining) | Pending | 4.0 (4×1÷1) | Haiku 3 | Gemini 1.5 Flash | Long sequential scripts with variable assignments crash transpiler with `AST too deep`. Scope needs flattening. |
+| 11 | [No Runtime Source Mapping](#11-no-runtime-source-mapping) | Done (2026-07-23) | 6.0 (6×1÷1) | Haiku 3 | Gemini 1.5 Flash | Go panics at runtime do not map back to `.zero` files. Need Go `//line` directives. |
 | 10 | [String Escaping Limitations](#10-string-escaping-limitations) | Pending | 5.0 (5×1÷1) | Haiku 3 | Gemini 1.5 Flash | Lexer breaks on unicode escapes and escaped single quotes, common in LLM outputs. |
-| 11 | [No Runtime Source Mapping](#11-no-runtime-source-mapping) | Pending | 6.0 (6×1÷1) | Haiku 3 | Gemini 1.5 Flash | Go panics at runtime do not map back to `.zero` files. Need Go `//line` directives. |
+| 9 | [Depth Limit Crash via `let` Chaining](#9-depth-limit-crash-via-let-chaining) | Pending | 4.0 (4×1÷1) | Haiku 3 | Gemini 1.5 Flash | Long sequential scripts with variable assignments crash transpiler with `AST too deep`. Scope needs flattening. |
 ## Details
 
 ### 1. Lexer panics on EOF during unterminated string

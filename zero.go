@@ -153,23 +153,25 @@ type Node struct {
 	Children []*Node
 	Line     int
 	Column   int
+	Filename string
 }
 
 // Parser
 type Parser struct {
-	lexer *Lexer
-	cur   Token
+	lexer    *Lexer
+	cur      Token
+	filename string
 }
 
-func NewParser(lexer *Lexer) *Parser {
-	p := &Parser{lexer: lexer}
+func NewParser(lexer *Lexer, filename string) *Parser {
+	p := &Parser{lexer: lexer, filename: filename}
 	p.cur = p.lexer.NextToken()
 	return p
 }
 
 func (p *Parser) parseExpression() *Node {
 	if p.cur.Type == TokenLParen {
-		node := &Node{Type: "List", Line: p.cur.Line, Column: p.cur.Column}
+		node := &Node{Type: "List", Line: p.cur.Line, Column: p.cur.Column, Filename: p.filename}
 		p.cur = p.lexer.NextToken() // consume '('
 		for p.cur.Type != TokenRParen && p.cur.Type != TokenEOF {
 			node.Children = append(node.Children, p.parseExpression())
@@ -181,7 +183,7 @@ func (p *Parser) parseExpression() *Node {
 		return node
 	}
 	if p.cur.Type == TokenSymbol || p.cur.Type == TokenInt || p.cur.Type == TokenString {
-		node := &Node{Type: string(p.cur.Type), Value: p.cur.Value, Line: p.cur.Line, Column: p.cur.Column}
+		node := &Node{Type: string(p.cur.Type), Value: p.cur.Value, Line: p.cur.Line, Column: p.cur.Column, Filename: p.filename}
 		p.cur = p.lexer.NextToken()
 		return node
 	}
@@ -194,7 +196,7 @@ func copyNode(n *Node) *Node {
 	if n == nil {
 		return nil
 	}
-	clone := &Node{Type: n.Type, Value: n.Value, Line: n.Line, Column: n.Column}
+	clone := &Node{Type: n.Type, Value: n.Value, Line: n.Line, Column: n.Column, Filename: n.Filename}
 	for _, child := range n.Children {
 		clone.Children = append(clone.Children, copyNode(child))
 	}
@@ -342,7 +344,7 @@ func generateCode(node *Node) string {
 
 			bodyNode := handlerNode.Children[len(handlerNode.Children)-1]
 			bodyCode := generateStatement(bodyNode, "", 0)
-			funcsCode += fmt.Sprintf("func %s(%s) %s {\n%s\n}\n\n", name, argsStr, returnType, bodyCode)
+			funcsCode += fmt.Sprintf("//line %s:%d\nfunc %s(%s) %s {\n%s\n}\n\n", handlerNode.Filename, handlerNode.Line, name, argsStr, returnType, bodyCode)
 			continue
 		}
 
@@ -468,6 +470,21 @@ import (
 }
 
 func generateStatement(node *Node, reqVar string, depth int) string {
+	code := generateStatementRaw(node, reqVar, depth)
+	if node.Type != "List" || len(node.Children) == 0 {
+		return code
+	}
+	head := node.Children[0].Value
+	switch head {
+	case "return", "res_json", "res", "let", "do", "try_let", "spawn", "if", "print", "db_connect", "sql_query", "append", "map_set", "map_delete", "for":
+		if node.Filename != "" {
+			return fmt.Sprintf("//line %s:%d\n%s", node.Filename, node.Line, code)
+		}
+	}
+	return code
+}
+
+func generateStatementRaw(node *Node, reqVar string, depth int) string {
 	if depth > 1000 {
 		reportError("AST too deep: exceeded maximum nesting limit of 1000", node.Line, node.Column)
 	}
@@ -768,6 +785,37 @@ func generateStatement(node *Node, reqVar string, depth int) string {
 			queryStr = fmt.Sprintf("%q", queryStr)
 		}
 		return fmt.Sprintf("		%s.Query(%s)", dbVar, queryStr)
+	} else if head == "append" {
+		if len(node.Children) != 3 {
+			reportError("append expects (append list item)", node.Line, node.Column)
+		}
+		listNode := node.Children[1]
+		if listNode.Type != "SYMBOL" {
+			reportError("append requires a symbol for list", node.Line, node.Column)
+		}
+		itemStr := generateStatement(node.Children[2], reqVar, depth+1)
+		return fmt.Sprintf("		%s = append(%s, %s)", listNode.Value, listNode.Value, itemStr)
+	} else if head == "map_set" {
+		if len(node.Children) != 4 {
+			reportError("map_set expects (map_set dict key val)", node.Line, node.Column)
+		}
+		dictNode := node.Children[1]
+		if dictNode.Type != "SYMBOL" {
+			reportError("map_set requires a symbol for dict", node.Line, node.Column)
+		}
+		keyStr := generateStatement(node.Children[2], reqVar, depth+1)
+		valStr := generateStatement(node.Children[3], reqVar, depth+1)
+		return fmt.Sprintf("		%s[%s] = %s", dictNode.Value, keyStr, valStr)
+	} else if head == "map_delete" {
+		if len(node.Children) != 3 {
+			reportError("map_delete expects (map_delete dict key)", node.Line, node.Column)
+		}
+		dictNode := node.Children[1]
+		if dictNode.Type != "SYMBOL" {
+			reportError("map_delete requires a symbol for dict", node.Line, node.Column)
+		}
+		keyStr := generateStatement(node.Children[2], reqVar, depth+1)
+		return fmt.Sprintf("		delete(%s, %s)", dictNode.Value, keyStr)
 	} else if head == "for" {
 		if len(node.Children) != 4 {
 			reportError("for expects (for item list body)", node.Line, node.Column)
@@ -823,7 +871,7 @@ func expandIncludes(node *Node, baseDir string, depth int) {
 			}
 
 			lexer := NewLexer(string(content))
-			parser := NewParser(lexer)
+			parser := NewParser(lexer, filepath.Base(fullPath))
 			includedAst := parser.parseExpression()
 
 			if parser.cur.Type != TokenEOF {
@@ -855,7 +903,7 @@ func main() {
 	}
 
 	lexer := NewLexer(string(content))
-	parser := NewParser(lexer)
+	parser := NewParser(lexer, filepath.Base(os.Args[1]))
 	ast := parser.parseExpression()
 
 	if parser.cur.Type != TokenEOF {
