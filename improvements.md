@@ -199,7 +199,7 @@ Now that Zero V1 is complete (a full Turing-complete web server and CLI language
 | 33 | **Full File System I/O (`write_file`, `mkdir`)** | Done (2026-07-23) | 3.0 (6×0.5÷1) | Sonnet 3.5 | Gemini 1.5 Pro | Necessary for the transpiler to write out generated `.go` files and manage projects. Decay 0.5. |
 | 24 | **CLI Argument Parsing (`cli_args`)** | Done (2026-07-23) | 2.5 (5×1.0÷2) | Sonnet 3.5 | Gemini 1.5 Pro | Required for workflow consolidation (per `automation` skill). Allows Zero scripts to take parameters effortlessly. |
 | 25 | **Timers and Backoff (`sleep`)** | Done (2026-07-23) | 2.0 (4×1.0÷2) | Sonnet 3.5 | Gemini 1.5 Pro | Fault tolerance (per `automation` skill) requires exponential backoff and deliberate delays `(sleep 1000)` during API rate limits. |
-| 16 | **Native Unit Test Blocks (`test`)** | Pending | 1.5 (6×1.0÷4) | Sonnet 3.5 | Gemini 1.5 Pro | AI iterates faster with TDD. A native `(test "desc" ...)` block at the root that compiles directly to `_test.go` allows seamless testing. |
+| 16 | **Native Unit Test Blocks (`test`)** | Done (2026-07-23) | 1.5 (6×1.0÷4) | Sonnet 3.5 | Gemini 1.5 Pro | AI iterates faster with TDD. A native `(test "desc" ...)` block at the root that compiles directly to `_test.go` allows seamless testing. |
 | 20 | **Auto-Tracing (`trace`)** | Pending | 1.5 (3×1.0÷2) | Sonnet 3.5 | Gemini 1.5 Pro | AI debugs by spamming `print`. A `(trace var)` macro auto-injects line numbers and variable names into `fmt.Println`. |
 | 18 | **Declarative Schema Migrations** | Pending | 1.0 (5×1.0÷5) | Sonnet 3.5 | Gemini 1.5 Pro | If `(schema "users" (column "id" "int"))` is in `.zero`, the transpiler can auto-generate `CREATE TABLE IF NOT EXISTS`. |
 | 43 | **Support for Go Generics** | Pending | 0.8 (4×1.0÷5) | Sonnet 3.5 | Gemini 1.5 Pro | Add `(type_param T)` syntax to `defun` to enable generating generic Go functions, useful for reusable AI-generated components. |
@@ -248,3 +248,9 @@ Now that Zero V1 is complete (a full Turing-complete web server and CLI language
 * **Description:** Expand the planned file I/O to include robust writing and directory management: `(write_file path data)`, `(mkdir path)`, and `(list_dir path)`.
 * **Why:** A compiler needs to manage projects, traverse source directories, and write output binary/code files to disk.
 * **Impact:** 8/10 (High - blocking for self-hosting).
+
+### 16. Native Unit Test Blocks
+* **Description:** A native `(test "description" body...)` block at the root of `http_server` or `cli_app` compiles directly into a Go `TestXxx(t *testing.T)` function in `server_test.go`, sitting alongside the generated `server.go`. The description is slugified into a valid Go identifier.
+* **Why:** AI iterates faster with TDD; without this, the AI has to hand-write separate Go test files outside the `.zero` source of truth.
+* **Impact:** 6/10 (Medium-High - unlocks native test-driven workflows).
+* **Done (2026-07-23):** Implemented in `generateCode` (now returns `(mainCode, testCode string)`); `main()` writes `server_test.go` when test blocks are present and removes it otherwise. Verified with `tests/test_feature.zero` — `go build`, `go vet`, and `go test` all pass. Delegated to agy; picked up and closed out after the delegate hit a session limit mid-task (see former journal `2026-07-23_native_unit_test_blocks.md`).

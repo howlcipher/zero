@@ -2,6 +2,7 @@
 server
 hello
 server.go
+server_test.go
 app.zero
 
 # Go modules

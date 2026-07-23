@@ -1,0 +1,5 @@
+(cli_app
+  (test "desc"
+    (print "hello")
+  )
+)

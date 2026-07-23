@@ -236,7 +236,7 @@ func renameVar(node *Node, oldName, newName string) {
 }
 
 // Code Generator
-func generateCode(node *Node) string {
+func generateCode(node *Node) (string, string) {
 	if node.Type != "List" || len(node.Children) == 0 {
 		reportError("Expected list at root", node.Line, node.Column)
 	}
@@ -265,17 +265,54 @@ func generateCode(node *Node) string {
 	var funcsCode string
 	var routesCode string
 	var cliCode string
+	var testCode string
 	var extraImports []string
 
 	for i := startIndex; i < len(node.Children); i++ {
 		handlerNode := node.Children[i]
 		if handlerNode.Type != "List" || len(handlerNode.Children) == 0 {
-			reportError("Expected route, defun, struct, or import definition", handlerNode.Line, handlerNode.Column)
+			reportError("Expected route, defun, struct, import, test, or middleware definition", handlerNode.Line, handlerNode.Column)
 		}
 
 		head := handlerNode.Children[0].Value
 
 		if head == "intent" {
+			continue
+		}
+
+		if head == "test" {
+			if len(handlerNode.Children) < 3 {
+				reportError("test expects (test \"description\" body...)", handlerNode.Line, handlerNode.Column)
+			}
+			descNode := handlerNode.Children[1]
+			if descNode.Type != "STRING" {
+				reportError("test description must be a string", descNode.Line, descNode.Column)
+			}
+			desc := descNode.Value
+			safeDesc := ""
+			lastWasUnderscore := false
+			for _, r := range desc {
+				if unicode.IsLetter(r) || unicode.IsDigit(r) {
+					safeDesc += string(r)
+					lastWasUnderscore = false
+				} else {
+					if !lastWasUnderscore {
+						safeDesc += "_"
+						lastWasUnderscore = true
+					}
+				}
+			}
+			safeDesc = strings.Trim(safeDesc, "_")
+			testFuncName := "Test"
+			if len(safeDesc) > 0 {
+				testFuncName += "_" + safeDesc
+			}
+
+			var testBodyCode string
+			for j := 2; j < len(handlerNode.Children); j++ {
+				testBodyCode += generateStatement(handlerNode.Children[j], "", 0) + "\n"
+			}
+			testCode += fmt.Sprintf("func %s(t *testing.T) {\n%s\n}\n\n", testFuncName, testBodyCode)
 			continue
 		}
 
@@ -429,7 +466,7 @@ func generateCode(node *Node) string {
 			continue
 		}
 
-		reportError("Expected route, defun, struct, import, or middleware block", handlerNode.Line, handlerNode.Column)
+		reportError("Expected route, defun, struct, import, test, or middleware block", handlerNode.Line, handlerNode.Column)
 	}
 
 	code := `package main
@@ -466,6 +503,7 @@ import (
 	var _ = strings.Split
 	var _ = time.Sleep
 	var _ = strconv.Atoi
+	var _ = fmt.Println
 `
 	if isCliApp {
 		code += cliCode
@@ -481,7 +519,47 @@ import (
 `, portNode.Value, portNode.Value)
 	}
 
-	return code
+	if testCode != "" {
+		fullTestCode := `package main
+
+import (
+	"bytes"
+	"database/sql"
+	"encoding/json"
+	"fmt"
+	"io"
+	"net/http"
+	"os"
+	"os/exec"
+	"regexp"
+	"strconv"
+	"strings"
+	"testing"
+	"time"
+`
+		for _, imp := range extraImports {
+			fullTestCode += imp
+		}
+		fullTestCode += `)
+
+var _ = sql.Open
+var _ = os.Getenv
+var _ = json.Marshal
+var _ = io.ReadAll
+var _ = bytes.NewBuffer
+var _ = http.DefaultClient
+var _ = exec.Command
+var _ = regexp.MatchString
+var _ = strings.Split
+var _ = time.Sleep
+var _ = strconv.Atoi
+var _ = fmt.Println
+
+` + testCode
+		testCode = fullTestCode
+	}
+
+	return code, testCode
 }
 
 func generateStatement(node *Node, reqVar string, depth int) string {
@@ -1288,10 +1366,19 @@ func main() {
 	applyPatches(ast)
 	ast = applyWithContext(ast, nil)
 
-	goCode := generateCode(ast)
+	goCode, testCode := generateCode(ast)
 
 	err = os.WriteFile("server.go", []byte(goCode), 0644)
 	if err != nil {
 		reportError(fmt.Sprintf("Failed to write server.go: %v", err), 0, 0)
+	}
+
+	if testCode != "" {
+		err = os.WriteFile("server_test.go", []byte(testCode), 0644)
+		if err != nil {
+			reportError(fmt.Sprintf("Failed to write server_test.go: %v", err), 0, 0)
+		}
+	} else {
+		os.Remove("server_test.go")
 	}
 }
