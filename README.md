@@ -226,9 +226,7 @@ Zero supports Test-Driven Development natively. You can include `(test "descript
     (type_hint a "int")
     (type_hint b "int")
     (type_hint return "int")
-    (let (sum (+ a b))
-      (return sum)
-    )
+    (return (+ a b))
   )
 
   (test "add function returns correct sum"
@@ -241,5 +239,5 @@ Zero supports Test-Driven Development natively. You can include `(test "descript
 )
 ```
 
-> Note: as of 2026-07-23, `return` only supports bare variables/literals, not inline compound expressions like `(return (+ a b))` (bug #13, pending) — reflected in the example above by returning through a `let`-bound variable. (Single-branch `if` with no `else`, shown above, was fixed as bug #16.) See `bugs.md` for status.
+> Note: as of 2026-07-23, `return` supports inline compound expressions like `(return (+ a b))` and `(return (call f x))` directly (bug #13, fixed) — no need to bind through a `let` first. Single-branch `if` with no `else`, shown above, was fixed as bug #16. `if` conditions still only accept a flat `(op a b)` comparison — `and`/`or` and nested arithmetic in the condition itself are not yet supported (bug #18, pending). See `bugs.md` for current status.
 
