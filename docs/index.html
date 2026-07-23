@@ -42,12 +42,11 @@
 
         <section id="hello-world">
             <h2>Hello World HTTP Server</h2>
-            <pre><code>(def http-server (port)
-  (http/listen port
-    (fn (req res)
-      (res/send 200 "Hello, World!"))))
-
-(http-server 8080)</code></pre>
+            <pre><code>(http_server 8080
+  (route "/" (lambda (req)
+    (res 200 "text/plain" "Hello, World! Zero language is alive!")
+  ))
+)</code></pre>
         </section>
     </main>
 
