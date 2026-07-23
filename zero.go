@@ -87,6 +87,16 @@ func (l *Lexer) NextToken() Token {
 			l.nextChar()
 			continue
 		}
+		if ch == ';' {
+			for {
+				c := l.peekChar()
+				if c == 0 || c == '\n' {
+					break
+				}
+				l.nextChar()
+			}
+			continue
+		}
 		break
 	}
 
