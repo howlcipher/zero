@@ -816,8 +816,8 @@ func generateStatementRaw(node *Node, reqVar string, depth int) string {
 		bodyCode := generateStatement(lambdaNode.Children[2], reqVar, depth+1)
 		return fmt.Sprintf("		go func() {\n%s\n		}()", bodyCode)
 	} else if head == "if" {
-		if len(node.Children) != 4 {
-			reportError("if expects (if cond then else)", node.Line, node.Column)
+		if len(node.Children) != 3 && len(node.Children) != 4 {
+			reportError("if expects (if cond then) or (if cond then else)", node.Line, node.Column)
 		}
 		condNode := node.Children[1]
 		if condNode.Type != "List" || len(condNode.Children) != 3 {
@@ -841,6 +841,13 @@ func generateStatementRaw(node *Node, reqVar string, depth int) string {
 		}
 
 		thenCode := generateStatement(node.Children[2], reqVar, depth+1)
+
+		if len(node.Children) == 3 {
+			return fmt.Sprintf(`		if %s %s %s {
+%s
+		}`, left, op, rightStr, thenCode)
+		}
+
 		elseCode := generateStatement(node.Children[3], reqVar, depth+1)
 
 		return fmt.Sprintf(`		if %s %s %s {

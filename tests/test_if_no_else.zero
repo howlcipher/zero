@@ -1,0 +1,20 @@
+(cli_app
+  (defun add (a b)
+    (type_hint a "int")
+    (type_hint b "int")
+    (type_hint return "int")
+    (let (sum (+ a b))
+      (return sum)
+    )
+  )
+
+  (if (!= 1 2)
+    (print "guard-clause branch ran")
+  )
+
+  (let (result (call add 2 3))
+    (if (!= result 5)
+      (print "Error: expected 5 got" result)
+    )
+  )
+)
