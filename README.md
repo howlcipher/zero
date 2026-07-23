@@ -104,7 +104,7 @@ Zero scripts can effortlessly read command-line parameters using `(cli_args)`:
 
 ### AI Orchestration Example
 
-Zero comes with built-in primitives to orchestrate other AIs natively and enforce constraints effortlessly:
+Zero comes with built-in primitives to orchestrate other AIs natively and enforce constraints effortlessly. This example calls another LLM directly (`llm_generate`), coerces messy text into a strict struct (`fuzzy_cast`), and applies an intent-based qualitative validation (`assert_semantic`):
 
 ```lisp
 (cli_app
@@ -112,16 +112,14 @@ Zero comes with built-in primitives to orchestrate other AIs natively and enforc
     (catch err (print "Error:" err))
     (print "AI says:" resp)
   )
-  
+
   (struct User (name string) (age int))
-  
-  ;; Coerce messy text into a strict struct
+
   (try_let (user_struct (fuzzy_cast User "{ \"name\": \"Alice\", \"age\": 30 }"))
     (catch err (print err))
     (print user_struct)
   )
-  
-  ;; Intent-based qualitative validation
+
   (let (is_valid (assert_semantic "Alice is a doctor" "is professional"))
     (if (= is_valid true)
       (print "Approved")
@@ -145,17 +143,18 @@ Zero supports surgically updating functions without rewriting the entire file, w
 
 ### Implicit Context Threading
 
-Zero can automatically inject context variables into function calls within a specific block, reducing the cognitive load for AIs to remember to thread variables like `req`, `db`, or `ctx`:
+Zero can automatically inject context variables into function calls within a specific block, reducing the cognitive load for AIs to remember to thread variables like `req`, `db`, or `ctx`. Inside `(with_context (db) ...)` below, `(call fetch_user "123")` is automatically expanded to `(call fetch_user db "123")`:
 
 ```lisp
 (cli_app
   (defun fetch_user (db user_id)
-    (print "Fetching user" user_id "from" db)
+    (type_hint user_id "string")
+    (type_hint return "string")
+    (return (+ "Fetched user " (+ user_id (+ " from " db))))
   )
   (let (db "PostgreSQL")
     (with_context (db)
-      ;; Automatically expanded to (call fetch_user db 123)
-      (call fetch_user 123)
+      (print (call fetch_user "123"))
     )
   )
 )
