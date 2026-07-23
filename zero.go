@@ -410,10 +410,14 @@ func generateCode(node *Node) (string, string) {
 			if t, ok := typeHints["return"]; ok {
 				returnType = t
 			}
+			returnTypeStr := " " + returnType
+			if returnType == "void" {
+				returnTypeStr = ""
+			}
 
 			bodyNode := handlerNode.Children[len(handlerNode.Children)-1]
 			bodyCode := generateStatement(bodyNode, "", 0)
-			funcsCode += fmt.Sprintf("//line %s:%d\nfunc %s(%s) %s {\n%s\n}\n\n", handlerNode.Filename, handlerNode.Line, name, argsStr, returnType, bodyCode)
+			funcsCode += fmt.Sprintf("//line %s:%d\nfunc %s(%s)%s {\n%s\n}\n\n", handlerNode.Filename, handlerNode.Line, name, argsStr, returnTypeStr, bodyCode)
 			continue
 		}
 

@@ -1,0 +1,9 @@
+(cli_app
+  (defun side_effect (a)
+    (type_hint return "void")
+    (print a)
+  )
+  (test "void"
+    (call side_effect "hello")
+  )
+)
