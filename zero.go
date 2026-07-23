@@ -1056,6 +1056,24 @@ func generateStatementRaw(node *Node, reqVar string, depth int) string {
 			args = append(args, generateStatement(node.Children[j], reqVar, depth+1))
 		}
 		return fmt.Sprintf("func() ([]byte, error) { return exec.Command(%s, %s).CombinedOutput() }()", cmdStr, strings.Join(args, ", "))
+	} else if head == "to_int" {
+		if len(node.Children) != 2 {
+			reportError("to_int expects (to_int val)", node.Line, node.Column)
+		}
+		valStr := generateStatement(node.Children[1], reqVar, depth+1)
+		return fmt.Sprintf("strconv.Atoi(%s)", valStr)
+	} else if head == "to_float" {
+		if len(node.Children) != 2 {
+			reportError("to_float expects (to_float val)", node.Line, node.Column)
+		}
+		valStr := generateStatement(node.Children[1], reqVar, depth+1)
+		return fmt.Sprintf("strconv.ParseFloat(%s, 64)", valStr)
+	} else if head == "to_string" || head == "bytes_to_string" {
+		if len(node.Children) != 2 {
+			reportError(fmt.Sprintf("%s expects 1 argument", head), node.Line, node.Column)
+		}
+		valStr := generateStatement(node.Children[1], reqVar, depth+1)
+		return fmt.Sprintf("string(%s)", valStr)
 	} else if head == "str_split" {
 		if len(node.Children) != 3 {
 			reportError("str_split expects (str_split s sep)", node.Line, node.Column)
