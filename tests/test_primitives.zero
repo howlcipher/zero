@@ -1,0 +1,28 @@
+(cli_app
+  (test "string_to_number"
+    (try_let (i (to_int "42"))
+      (catch err (print err))
+      (print "int:" i)
+    )
+    (try_let (f (to_float "3.14"))
+      (catch err (print err))
+      (print "float:" f)
+    )
+  )
+  
+  (test "bytes_to_string"
+    (write_file "test_prims.txt" "hello bytes")
+    (try_let (b (read_file "test_prims.txt"))
+      (catch err (print err))
+      (do
+        (let (s (to_string b))
+          (print "string:" s)
+        )
+        (let (s2 (bytes_to_string b))
+          (print "string2:" s2)
+        )
+      )
+    )
+    (exec "rm" "test_prims.txt")
+  )
+)
