@@ -36,7 +36,16 @@ def main():
     print("Compiling CFG generator... (this may take several minutes for large local models)")
     generator = outlines.generate.cfg(model, grammar)
 
-    prompt = "Build a web server on port 8080 with a root route returning 'root' and an /api route returning 'api'."
+    # Load the Zero AI System Prompt to provide context on the language
+    system_context = ""
+    try:
+        with open("AI_PROMPT.md", "r") as f:
+            system_context = f.read() + "\n\n"
+    except FileNotFoundError:
+        print("Warning: AI_PROMPT.md not found. The model may struggle without language context.")
+
+    user_goal = "Build a web server on port 8080 with a root route returning 'root' and an /api route returning 'api'."
+    prompt = system_context + "Goal:\n" + user_goal
     max_retries = 3
     current_prompt = prompt
 
