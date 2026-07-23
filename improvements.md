@@ -38,6 +38,7 @@ Pending rows are ranked by a diminishing-returns score:
 | 13 | [Add File Inclusions (include)](#13-add-file-inclusions-include) | Done | 2.33 (7×1.0÷3) | Sonnet 3.5 | Gemini 1.5 Pro | Prevents massive monolithic `.zero` files by allowing modular codebases. |
 | 14 | [Add Basic Math and Logic Operators](#14-add-basic-math-and-logic-operators) | Done | — | Sonnet 3.5 | Gemini 1.5 Pro | Necessary for computing values natively in Zero instead of relying entirely on DB logic. |
 | 15 | [Add Middleware Support](#15-add-middleware-support) | Done | 0.41 (5×0.25÷3) | Sonnet 3.5 | Gemini 1.5 Pro | Required for adding authentication and request logging across routes. |
+| 42 | [Clean up file structure](#42-clean-up-file-structure) | Pending | 4.00 (4×1.0÷1) | Sonnet 3.5 | Gemini 1.5 Pro | The root directory is cluttered with `.zero` test files and examples. Needs organized folders. |
 | 35 | [Add LLM-powered Type Coercion (fuzzy_cast)](#35-add-llm-powered-type-coercion-fuzzy_cast) | Pending | 2.00 (8×1.0÷4) | Sonnet 3.5 | Gemini 1.5 Pro | Universal parser using LLM structured outputs to map messy, unstructured text to strict structs. |
 | 36 | [Add Intent-based Validation (assert_semantic)](#36-add-intent-based-validation-assert_semantic) | Pending | 2.00 (6×1.0÷3) | Sonnet 3.5 | Gemini 1.5 Pro | Enforces complex, qualitative natural language boundaries effortlessly using zero-shot prompts. |
 | 34 | [Add Semantic Routing (semantic_match)](#34-add-semantic-routing-semantic_match) | Pending | 1.40 (7×1.0÷5) | Sonnet 3.5 | Gemini 1.5 Pro | Natively understands intent, replacing brittle traditional conditional routing and regexes. |
@@ -163,6 +164,11 @@ Pending rows are ranked by a diminishing-returns score:
 * **Description:** Natively handles uncertainty in the AST. Conditions evaluate to probability distributions, allowing control flow primitives like `(if (> (confidence (is_fraud tx)) 0.95) ...)` to branch based on statistical certainty.
 * **Why:** Eliminates hardcoded heuristics by bringing fuzzy logic directly into the core execution loop, perfectly matching the probabilistic nature of AI models.
 * **Impact:** 3/10 (Low/Medium - complex but powerful for AI).
+
+### 42. Clean up file structure
+* **Description:** Move all `.zero` test files (e.g. `test_*.zero`) into a `tests/` directory, and example files (`hello.zero`, `cli_hello.zero`) into an `examples/` directory. Move or gitignore generated binaries.
+* **Why:** The project root is getting messy, making it hard to find core files like `zero.go` and `orchestrator.py`.
+* **Impact:** 4/10 (Quality of life, helps AI reasoning speed).
 
 ---
 

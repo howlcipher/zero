@@ -1,3 +1,0 @@
-(cli_app
-  (print "\u2713 Success: escaped \' single quote and unicode \u263A")
-)

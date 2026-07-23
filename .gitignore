@@ -1,0 +1,14 @@
+# Generated binaries
+server
+hello
+server.go
+app.zero
+
+# Go modules
+vendor/
+go.sum
+
+# Python
+__pycache__/
+*.pyc
+

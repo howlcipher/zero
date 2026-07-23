@@ -1,6 +1,0 @@
-(cli_app
-  (try_let (resp (llm_generate "say hello"))
-    (catch err (print "Error:" err))
-    (print "Response:" resp)
-  )
-)
