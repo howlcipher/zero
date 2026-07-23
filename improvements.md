@@ -140,6 +140,10 @@ Now that Zero V1 is complete (a full Turing-complete web server and CLI language
 | 27 | **AST-Level Semantic Patching** | Pending | 5.0 (5×1.0÷1) | Sonnet 3.5 | Gemini 1.5 Pro | `(patch function (body))` allows the AI to surgically update specific functions without rewriting the whole file. |
 | 28 | **Built-in Rate Limiting / Circuit Breakers** | Pending | 4.0 (4×1.0÷1) | Sonnet 3.5 | Gemini 1.5 Pro | Native `(rate_limit "10/s" (fetch ...))` provides essential guardrails against AI DDoS or loops. |
 | 29 | **Implicit Context Threading** | Pending | 3.0 (3×1.0÷1) | Sonnet 3.5 | Gemini 1.5 Pro | `(with_context db ...)` auto-generates Go code that threads dependencies implicitly, saving cognitive load. |
+| 30 | **String Manipulation Suite (`str_split`, `str_join`, `regex`)** | Pending | 7.0 (7×1.0÷1) | Sonnet 3.5 | Gemini 1.5 Pro | Essential for parsing and lexing text, required for self-hosting. |
+| 31 | **Mutable Collections (`append`, `map_set`)** | Pending | 8.0 (8×1.0÷1) | Sonnet 3.5 | Gemini 1.5 Pro | Needed to build up dynamic lists (like AST children) and manage state. |
+| 32 | **Advanced Control Flow (`while`, `match`)** | Pending | 6.5 (6.5×1.0÷1) | Sonnet 3.5 | Gemini 1.5 Pro | State machines and parsers require `while` loops and pattern matching for tokens. |
+| 33 | **Full File System I/O (`write_file`, `mkdir`)** | Pending | 6.0 (6×1.0÷1) | Sonnet 3.5 | Gemini 1.5 Pro | Necessary for the transpiler to write out generated `.go` files and manage projects. |
 
 ### 26. LLM-Native Primitives
 * **Description:** Add built-in nodes like `(llm_generate "prompt" model="...")` and `(vector_embed text)`.
@@ -160,3 +164,23 @@ Now that Zero V1 is complete (a full Turing-complete web server and CLI language
 * **Description:** A `(with_context db ...)` block that auto-generates Go code threading dependencies.
 * **Why:** Removes the need for the AI to remember to pass `req`, `db`, or `context.Context` to every sub-function.
 * **Impact:** 6/10 (Medium).
+
+### 30. String Manipulation Suite
+* **Description:** Add standard string operations such as `(str_split s sep)`, `(str_join list sep)`, `(str_sub s start end)`, and `(regex_match pattern s)`.
+* **Why:** Self-hosting a transpiler requires reading and manipulating raw text efficiently (e.g., tokenizing source code).
+* **Impact:** 8/10 (High - blocking for self-hosting).
+
+### 31. Mutable Collections
+* **Description:** Add `(append list item)`, `(map_set dict key val)`, and `(map_delete dict key)` to mutate data structures after creation.
+* **Why:** The AST builder needs to push parsed child nodes into an array dynamically. Currently, only static lists exist.
+* **Impact:** 9/10 (Critical - blocking for self-hosting).
+
+### 32. Advanced Control Flow
+* **Description:** Introduce `(while cond body)` for unbounded loops, and `(match var (val body)...)` for cleanly branching on token types.
+* **Why:** Writing state machines (Lexers and Parsers) with just basic `for` range loops is extremely difficult.
+* **Impact:** 7/10 (High - blocking for self-hosting).
+
+### 33. Full File System I/O
+* **Description:** Expand the planned file I/O to include robust writing and directory management: `(write_file path data)`, `(mkdir path)`, and `(list_dir path)`.
+* **Why:** A compiler needs to manage projects, traverse source directories, and write output binary/code files to disk.
+* **Impact:** 8/10 (High - blocking for self-hosting).
