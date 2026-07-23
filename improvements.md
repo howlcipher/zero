@@ -50,6 +50,7 @@ Pending rows are ranked by a diminishing-returns score:
 | 46 | [Close the Benchmark-Found Gaps and Make It a Standing Metric](#46-close-the-benchmark-found-gaps-and-make-it-a-standing-metric) | Pending | 1.17 (7×0.5÷3) | Sonnet 5 | — | Uses improvement #44's measured results as a design input instead of a one-off marketing artifact: fixes the concrete `type_hint` token-overhead finding from Task C, and formalizes re-running the benchmark as a regression gate for changes touching `defun`/`type_hint`, `read_file`, `str_split`, or `test`. |
 | 45 | [Add Zero-to-JavaScript Compilation Target](#45-add-zero-to-javascript-compilation-target) | Pending | 1.14 (8×1.0÷7) | Sonnet 5 | — | Second codegen backend lets the same AI-facing S-expression grammar target the browser, extending Zero's hallucination-reduction pitch from backend-only to full-stack. Scoped to JS logic only — HTML/CSS stay native (see 2026-07-23 conversation). |
 | 18 | [Declarative Schema Migrations](#18-declarative-schema-migrations) | Pending | 1.0 (5×1.0÷5) | Sonnet 3.5 | Gemini 1.5 Pro | Merged into the main table 2026-07-23 groom pass — was previously only tracked in the legacy V2 table below, invisible to a scan of this table alone. `(schema "users" (column "id" "int"))` would let the transpiler auto-generate `CREATE TABLE IF NOT EXISTS`, building on the already-shipped `db_connect`/`sql_query` (#4) and `struct` (#7) primitives. |
+| 48 | [Add CLI flag for output directory](#48-add-cli-flag-for-output-directory) | Pending | 1.0 (2×1.0÷2) | Sonnet 5 | Gemini 1.5 Pro | The transpiler always outputs `server.go` and `server_test.go` to the current working directory. Adding an output directory flag (e.g. `-o`) would allow keeping the workspace clean. |
 | 43 | [Support for Go Generics](#43-support-for-go-generics) | Pending | 0.8 (4×1.0÷5) | Sonnet 3.5 | Gemini 1.5 Pro | Merged into the main table 2026-07-23 groom pass — was previously only tracked in the legacy V2 table below, invisible to a scan of this table alone. `(type_param T)` syntax in `defun` would enable generating generic Go functions. |
 | 41 | [Add Stochastic Control Flow](#41-add-stochastic-control-flow) | ⚠️ below floor | 0.29 (2×1.0÷7) | Sonnet 3.5 | Gemini 1.5 Pro | Introduces fuzzy logic natively; deferred as non-essential for initial MVP. |
 | 38 | [Add Swarm Primitives](#38-add-swarm-primitives) | ⚠️ below floor | 0.25 (2×1.0÷8) | Sonnet 3.5 | Gemini 1.5 Pro | Extremely advanced futurist concept; deferred to maintain MVP scope. |
@@ -59,6 +60,11 @@ Pending rows are ranked by a diminishing-returns score:
 | 37 | [Add Just-In-Time Function Generation (lazy_synthesize)](#37-add-just-in-time-function-generation-lazy_synthesize) | ⚠️ below floor | 0.089 (5×0.125÷7) | Sonnet 3.5 | Gemini 1.5 Pro | Defers boilerplate generation to runtime, allowing AI to focus only on high-level logic. Re-scored 2026-07-23: at runtime it would itself call an LLM to synthesize code, placing it in the same "LLM-backed runtime primitive" theme as shipped #26/#35/#36 (3 prior ships → decay 0.125, was uncounted at 1.0). |
 
 ## Details
+
+### 48. Add CLI flag for output directory
+* **Description:** Add an `-o` flag to `zero.go` (and the built `zero` binary) to specify an output directory for `server.go` and `server_test.go`.
+* **Why:** Running `./zero tests/some_test.zero` overwrites `server.go` and `server_test.go` in the root directory. This makes running tests concurrently or keeping the repo clean difficult.
+* **Impact:** 2/10 (Minor but highly convenient for DX).
 
 ### 1. Add Routing Support
 * **Description:** Update the compiler to accept multiple `(route path handler)` definitions inside a web server block.

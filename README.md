@@ -242,7 +242,7 @@ Zero supports Test-Driven Development natively. You can include `(test "descript
 )
 ```
 
-> Note: as of 2026-07-23, `return` supports inline compound expressions like `(return (+ a b))` and `(return (call f x))` directly (bug #13, fixed) — no need to bind through a `let` first. Single-branch `if` with no `else`, shown above, was fixed as bug #16. `if` conditions still only accept a flat `(op a b)` comparison — `and`/`or` and nested arithmetic in the condition itself are not yet supported (bug #18, pending). See `bugs.md` for current status.
+> Note: as of 2026-07-23, `return` supports inline compound expressions like `(return (+ a b))` and `(return (call f x))` directly (bug #13, fixed) — no need to bind through a `let` first. Single-branch `if` with no `else`, shown above, was fixed as bug #16. Void functions are supported using `(type_hint return "void")` (bug #24, fixed). `if` conditions still only accept a flat `(op a b)` comparison — `and`/`or` and nested arithmetic in the condition itself are not yet supported (bug #18, pending). See `bugs.md` for current status.
 
 ### Database & Persistence
 
