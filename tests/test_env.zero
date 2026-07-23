@@ -1,0 +1,8 @@
+(cli_app
+  (let (token (env "ZERO_TEST_TOKEN"))
+    (if (= token "expected-secret")
+      (print "ok: env(ZERO_TEST_TOKEN) ==" token)
+      (print "Error: expected expected-secret got" token)
+    )
+  )
+)

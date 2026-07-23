@@ -736,7 +736,6 @@ func generateStatementRaw(node *Node, reqVar string, depth int) string {
 					keyNode := valNode.Children[1]
 					if keyNode.Type == "STRING" {
 						valStr = fmt.Sprintf("os.Getenv(%q)", keyNode.Value)
-					valStr = fmt.Sprintf("os.Getenv(%s)", keyNode.Value)
 					}
 				} else if funcName == "parse_json" {
 					if len(valNode.Children) != 3 {
