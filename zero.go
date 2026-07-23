@@ -444,6 +444,7 @@ import (
 	"os"
 	"os/exec"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 `
@@ -489,7 +490,7 @@ func generateStatement(node *Node, reqVar string, depth int) string {
 	}
 	head := node.Children[0].Value
 	switch head {
-	case "return", "res_json", "res", "let", "do", "try_let", "spawn", "if", "print", "db_connect", "sql_query", "append", "map_set", "map_delete", "for", "sleep", "write_file", "mkdir", "exec", "while", "match", "set", "call":
+	case "return", "res_json", "res", "let", "do", "try_let", "spawn", "if", "print", "db_connect", "sql_query", "append", "map_set", "map_delete", "for", "sleep", "write_file", "mkdir", "exec", "while", "match", "set", "call", "cli_args":
 		if node.Filename != "" {
 			return fmt.Sprintf("//line %s:%d\n%s", node.Filename, node.Line, code)
 		}
@@ -1048,6 +1049,15 @@ func generateStatementRaw(node *Node, reqVar string, depth int) string {
 			}
 		}
 		return fmt.Sprintf("		%s(%s)", funcName, strings.Join(args, ", "))
+	} else if head == "cli_args" {
+		if len(node.Children) == 1 {
+			return "os.Args[1:]"
+		} else if len(node.Children) == 2 {
+			idxStr := generateStatement(node.Children[1], reqVar, depth+1)
+			return fmt.Sprintf("func() string { _idx, _ := strconv.Atoi(fmt.Sprint(%s)); if len(os.Args) > _idx+1 { return os.Args[_idx+1] }; return \"\" }()", idxStr)
+		} else {
+			reportError("cli_args expects (cli_args) or (cli_args index)", node.Line, node.Column)
+		}
 	}
 	reportError(fmt.Sprintf("Unknown statement: %s", head), node.Line, node.Column)
 	return ""

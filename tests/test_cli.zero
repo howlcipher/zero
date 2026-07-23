@@ -1,0 +1,6 @@
+(cli_app
+  (print (cli_args))
+  (print (cli_args 0))
+  (print (cli_args 1))
+  (print (cli_args 2))
+)
