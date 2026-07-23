@@ -57,6 +57,17 @@ Create `cli_hello.zero`:
 )
 ```
 
+### Command Line Arguments
+
+Zero scripts can effortlessly read command-line parameters using `(cli_args)`:
+
+```lisp
+(cli_app
+  (print "All arguments:" (cli_args))
+  (print "First argument:" (cli_args 0))
+)
+```
+
 ### AI Orchestration Example
 
 Zero comes with built-in primitives to orchestrate other AIs trivially natively:
