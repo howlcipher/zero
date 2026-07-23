@@ -489,7 +489,7 @@ func generateStatement(node *Node, reqVar string, depth int) string {
 	}
 	head := node.Children[0].Value
 	switch head {
-	case "return", "res_json", "res", "let", "do", "try_let", "spawn", "if", "print", "db_connect", "sql_query", "append", "map_set", "map_delete", "for", "sleep", "write_file", "mkdir", "exec", "while":
+	case "return", "res_json", "res", "let", "do", "try_let", "spawn", "if", "print", "db_connect", "sql_query", "append", "map_set", "map_delete", "for", "sleep", "write_file", "mkdir", "exec", "while", "match", "set":
 		if node.Filename != "" {
 			return fmt.Sprintf("//line %s:%d\n%s", node.Filename, node.Line, code)
 		}
@@ -569,6 +569,9 @@ func generateStatementRaw(node *Node, reqVar string, depth int) string {
 		fmt.Fprint(w, %q)`, contentType, status, resBody)
 		}
 	} else if head == "let" {
+		if len(node.Children) < 3 {
+			reportError("let expects (let (var val) body)", node.Line, node.Column)
+		}
 		var letPrefix strings.Builder
 		letPrefix.WriteString("		{\n")
 		declaredVars := make(map[string]bool)
@@ -630,29 +633,8 @@ func generateStatementRaw(node *Node, reqVar string, depth int) string {
 					keyNode := valNode.Children[1]
 					if keyNode.Type == "STRING" {
 						valStr = fmt.Sprintf("os.Getenv(%q)", keyNode.Value)
-					} else {
-						valStr = fmt.Sprintf("os.Getenv(%s)", keyNode.Value)
+					valStr = fmt.Sprintf("os.Getenv(%s)", keyNode.Value)
 					}
-				} else if funcName == "+" || funcName == "-" || funcName == "*" || funcName == "/" || funcName == "<" || funcName == ">" || funcName == "and" || funcName == "or" || funcName == "==" {
-					if len(valNode.Children) != 3 {
-						reportError(fmt.Sprintf("%s expects 2 arguments", funcName), valNode.Line, valNode.Column)
-					}
-					op := funcName
-					if op == "and" {
-						op = "&&"
-					}
-					if op == "or" {
-						op = "||"
-					}
-					arg1 := valNode.Children[1].Value
-					if valNode.Children[1].Type == "STRING" {
-						arg1 = fmt.Sprintf("%q", arg1)
-					}
-					arg2 := valNode.Children[2].Value
-					if valNode.Children[2].Type == "STRING" {
-						arg2 = fmt.Sprintf("%q", arg2)
-					}
-					valStr = fmt.Sprintf("(%s %s %s)", arg1, op, arg2)
 				} else if funcName == "parse_json" {
 					if len(valNode.Children) != 3 {
 						reportError("parse_json expects (parse_json Type body)", valNode.Line, valNode.Column)
@@ -759,11 +741,14 @@ func generateStatementRaw(node *Node, reqVar string, depth int) string {
 		}
 		condNode := node.Children[1]
 		if condNode.Type != "List" || len(condNode.Children) != 3 {
-			reportError("cond expects (= a b)", condNode.Line, condNode.Column)
+			reportError("cond expects (op a b)", condNode.Line, condNode.Column)
 		}
 		op := condNode.Children[0].Value
-		if op != "=" {
-			reportError("only '=' supported in if cond", condNode.Line, condNode.Column)
+		if op == "=" {
+			op = "=="
+		}
+		if op != "==" && op != "!=" && op != "<" && op != ">" && op != "<=" && op != ">=" {
+			reportError("unsupported operator in if cond: "+op, condNode.Line, condNode.Column)
 		}
 		left := condNode.Children[1].Value
 		if left == "req.method" {
@@ -778,11 +763,11 @@ func generateStatementRaw(node *Node, reqVar string, depth int) string {
 		thenCode := generateStatement(node.Children[2], reqVar, depth+1)
 		elseCode := generateStatement(node.Children[3], reqVar, depth+1)
 
-		return fmt.Sprintf(`		if %s == %s {
+		return fmt.Sprintf(`		if %s %s %s {
 %s
 		} else {
 %s
-		}`, left, rightStr, thenCode, elseCode)
+		}`, left, op, rightStr, thenCode, elseCode)
 	} else if head == "print" {
 		var args []string
 		for j := 1; j < len(node.Children); j++ {
@@ -855,8 +840,15 @@ func generateStatementRaw(node *Node, reqVar string, depth int) string {
 			reportError("while expects (while cond body)", node.Line, node.Column)
 		}
 		condNode := node.Children[1]
-		if condNode.Type != "List" || len(condNode.Children) != 3 || condNode.Children[0].Value != "=" {
-			reportError("while cond expects (= a b)", condNode.Line, condNode.Column)
+		if condNode.Type != "List" || len(condNode.Children) != 3 {
+			reportError("while cond expects (op a b)", condNode.Line, condNode.Column)
+		}
+		op := condNode.Children[0].Value
+		if op == "=" {
+			op = "=="
+		}
+		if op != "==" && op != "!=" && op != "<" && op != ">" && op != "<=" && op != ">=" {
+			reportError("unsupported operator in while cond: "+op, condNode.Line, condNode.Column)
 		}
 		left := condNode.Children[1].Value
 		if left == "req.method" {
@@ -867,9 +859,45 @@ func generateStatementRaw(node *Node, reqVar string, depth int) string {
 			right = fmt.Sprintf("%q", right)
 		}
 		bodyCode := generateStatement(node.Children[2], reqVar, depth+1)
-		return fmt.Sprintf(`		for %s == %s {
+		return fmt.Sprintf(`		for %s %s %s {
 %s
-		}`, left, right, bodyCode)
+		}`, left, op, right, bodyCode)
+	} else if head == "set" {
+		if len(node.Children) != 3 {
+			reportError("set expects (set var val)", node.Line, node.Column)
+		}
+		varStr := generateStatement(node.Children[1], reqVar, depth+1)
+		valStr := generateStatement(node.Children[2], reqVar, depth+1)
+		return fmt.Sprintf("		%s = %s", varStr, valStr)
+	} else if head == "match" {
+		if len(node.Children) < 3 {
+			reportError("match expects (match var (val body)...)", node.Line, node.Column)
+		}
+		varStr := generateStatement(node.Children[1], reqVar, depth+1)
+		
+		var casesStr string
+		for j := 2; j < len(node.Children); j++ {
+			caseNode := node.Children[j]
+			if caseNode.Type != "List" || len(caseNode.Children) != 2 {
+				reportError("match case expects (val body)", caseNode.Line, caseNode.Column)
+			}
+			caseValNode := caseNode.Children[0]
+			caseValStr := caseValNode.Value
+			
+			if caseValNode.Type == "SYMBOL" && caseValStr == "default" {
+				caseValStr = "default"
+			} else if caseValNode.Type == "STRING" {
+				caseValStr = fmt.Sprintf("%q", caseValStr)
+			}
+			
+			caseBodyCode := generateStatement(caseNode.Children[1], reqVar, depth+1)
+			if caseValStr == "default" {
+				casesStr += fmt.Sprintf("		default:\n%s\n", caseBodyCode)
+			} else {
+				casesStr += fmt.Sprintf("		case %s:\n%s\n", caseValStr, caseBodyCode)
+			}
+		}
+		return fmt.Sprintf("		switch %s {\n%s		}", varStr, casesStr)
 	} else if head == "sleep" {
 		if len(node.Children) != 2 {
 			reportError("sleep expects (sleep ms)", node.Line, node.Column)
@@ -991,6 +1019,20 @@ func generateStatementRaw(node *Node, reqVar string, depth int) string {
 			if err := json.NewDecoder(resp.Body).Decode(&res); err != nil { return "", err }
 			return res.Response, nil
 		}()`, modelStr, promptStr)
+	} else if head == "+" || head == "-" || head == "*" || head == "/" || head == "<" || head == ">" || head == "and" || head == "or" || head == "==" {
+		if len(node.Children) != 3 {
+			reportError(fmt.Sprintf("%s expects 2 arguments", head), node.Line, node.Column)
+		}
+		op := head
+		if op == "and" {
+			op = "&&"
+		}
+		if op == "or" {
+			op = "||"
+		}
+		arg1 := generateStatement(node.Children[1], reqVar, depth+1)
+		arg2 := generateStatement(node.Children[2], reqVar, depth+1)
+		return fmt.Sprintf("(%s %s %s)", arg1, op, arg2)
 	}
 	reportError(fmt.Sprintf("Unknown statement: %s", head), node.Line, node.Column)
 	return ""

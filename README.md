@@ -105,9 +105,9 @@ Zero supports surgically updating functions without rewriting the entire file, w
 
 The server will spin up on `http://localhost:8080`.
 
-### Automation and File I/O
+### Automation and Advanced Control Flow
 
-Zero has native support for file operations, subprocess execution, and string manipulation for easy automation scripting:
+Zero has native support for file operations, subprocess execution, advanced loops (`while`, `match`), and string manipulation for easy automation scripting and state-machine building:
 
 ```lisp
 (cli_app

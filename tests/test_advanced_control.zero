@@ -1,0 +1,14 @@
+(cli_app
+	(let (x 0)
+		(while (< x 3)
+			(do
+				(match x
+					(0 (print "zero"))
+					(1 (print "one"))
+					(default (print "other"))
+				)
+				(set x (+ x 1))
+			)
+		)
+	)
+)
