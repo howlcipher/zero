@@ -1209,8 +1209,10 @@ func generateStatementRaw(node *Node, reqVar string, depth int) string {
 			argNode := node.Children[j]
 			if argNode.Type == "STRING" {
 				args = append(args, fmt.Sprintf("%q", argNode.Value))
-			} else {
+			} else if argNode.Type == "NUMBER" || argNode.Type == "SYMBOL" {
 				args = append(args, argNode.Value)
+			} else {
+				args = append(args, generateExpression(argNode, reqVar, depth+1))
 			}
 		}
 		return fmt.Sprintf("		%s(%s)", funcName, strings.Join(args, ", "))
