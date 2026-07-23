@@ -614,6 +614,10 @@ func generateStatement(node *Node, reqVar string, depth int) string {
 	return code
 }
 
+func generateExpression(node *Node, reqVar string, depth int) string {
+	return generateStatementRaw(node, reqVar, depth)
+}
+
 func generateStatementRaw(node *Node, reqVar string, depth int) string {
 	if depth > 1000 {
 		reportError("AST too deep: exceeded maximum nesting limit of 1000", node.Line, node.Column)
@@ -622,6 +626,9 @@ func generateStatementRaw(node *Node, reqVar string, depth int) string {
 		return fmt.Sprintf("%q", node.Value)
 	}
 	if node.Type == "SYMBOL" || node.Type == "INT" {
+		if node.Value == "req.method" {
+			return reqVar + ".Method"
+		}
 		return node.Value
 	}
 	if node.Type != "List" || len(node.Children) == 0 {
@@ -855,42 +862,22 @@ func generateStatementRaw(node *Node, reqVar string, depth int) string {
 		if len(node.Children) != 3 && len(node.Children) != 4 {
 			reportError("if expects (if cond then) or (if cond then else)", node.Line, node.Column)
 		}
-		condNode := node.Children[1]
-		if condNode.Type != "List" || len(condNode.Children) != 3 {
-			reportError("cond expects (op a b)", condNode.Line, condNode.Column)
-		}
-		op := condNode.Children[0].Value
-		if op == "=" {
-			op = "=="
-		}
-		if op != "==" && op != "!=" && op != "<" && op != ">" && op != "<=" && op != ">=" {
-			reportError("unsupported operator in if cond: "+op, condNode.Line, condNode.Column)
-		}
-		left := condNode.Children[1].Value
-		if left == "req.method" {
-			left = reqVar + ".Method"
-		}
-		right := condNode.Children[2]
-		rightStr := right.Value
-		if right.Type == "STRING" {
-			rightStr = fmt.Sprintf("%q", rightStr)
-		}
-
+		condExpr := generateExpression(node.Children[1], reqVar, depth+1)
 		thenCode := generateStatement(node.Children[2], reqVar, depth+1)
 
 		if len(node.Children) == 3 {
-			return fmt.Sprintf(`		if %s %s %s {
+			return fmt.Sprintf(`		if %s {
 %s
-		}`, left, op, rightStr, thenCode)
+		}`, condExpr, thenCode)
 		}
 
 		elseCode := generateStatement(node.Children[3], reqVar, depth+1)
 
-		return fmt.Sprintf(`		if %s %s %s {
+		return fmt.Sprintf(`		if %s {
 %s
 		} else {
 %s
-		}`, left, op, rightStr, thenCode, elseCode)
+		}`, condExpr, thenCode, elseCode)
 	} else if head == "print" {
 		var args []string
 		for j := 1; j < len(node.Children); j++ {
@@ -962,29 +949,11 @@ func generateStatementRaw(node *Node, reqVar string, depth int) string {
 		if len(node.Children) != 3 {
 			reportError("while expects (while cond body)", node.Line, node.Column)
 		}
-		condNode := node.Children[1]
-		if condNode.Type != "List" || len(condNode.Children) != 3 {
-			reportError("while cond expects (op a b)", condNode.Line, condNode.Column)
-		}
-		op := condNode.Children[0].Value
-		if op == "=" {
-			op = "=="
-		}
-		if op != "==" && op != "!=" && op != "<" && op != ">" && op != "<=" && op != ">=" {
-			reportError("unsupported operator in while cond: "+op, condNode.Line, condNode.Column)
-		}
-		left := condNode.Children[1].Value
-		if left == "req.method" {
-			left = reqVar + ".Method"
-		}
-		right := condNode.Children[2].Value
-		if condNode.Children[2].Type == "STRING" {
-			right = fmt.Sprintf("%q", right)
-		}
+		condExpr := generateExpression(node.Children[1], reqVar, depth+1)
 		bodyCode := generateStatement(node.Children[2], reqVar, depth+1)
-		return fmt.Sprintf(`		for %s %s %s {
+		return fmt.Sprintf(`		for %s {
 %s
-		}`, left, op, right, bodyCode)
+		}`, condExpr, bodyCode)
 	} else if head == "set" {
 		if len(node.Children) != 3 {
 			reportError("set expects (set var val)", node.Line, node.Column)
@@ -997,7 +966,7 @@ func generateStatementRaw(node *Node, reqVar string, depth int) string {
 			reportError("match expects (match var (val body)...)", node.Line, node.Column)
 		}
 		varStr := generateStatement(node.Children[1], reqVar, depth+1)
-		
+
 		var casesStr string
 		for j := 2; j < len(node.Children); j++ {
 			caseNode := node.Children[j]
@@ -1006,13 +975,13 @@ func generateStatementRaw(node *Node, reqVar string, depth int) string {
 			}
 			caseValNode := caseNode.Children[0]
 			caseValStr := caseValNode.Value
-			
+
 			if caseValNode.Type == "SYMBOL" && caseValStr == "default" {
 				caseValStr = "default"
 			} else if caseValNode.Type == "STRING" {
 				caseValStr = fmt.Sprintf("%q", caseValStr)
 			}
-			
+
 			caseBodyCode := generateStatement(caseNode.Children[1], reqVar, depth+1)
 			if caseValStr == "default" {
 				casesStr += fmt.Sprintf("		default:\n%s\n", caseBodyCode)
@@ -1105,7 +1074,9 @@ func generateStatementRaw(node *Node, reqVar string, depth int) string {
 		ms := 1000
 		if strings.HasSuffix(rateStr, "/s") {
 			n, _ := strconv.Atoi(strings.TrimSuffix(rateStr, "/s"))
-			if n > 0 { ms = 1000 / n }
+			if n > 0 {
+				ms = 1000 / n
+			}
 		}
 		return fmt.Sprintf(`		{
 			time.Sleep(%d * time.Millisecond)
@@ -1195,7 +1166,7 @@ func generateStatementRaw(node *Node, reqVar string, depth int) string {
 		}
 		varStr := generateStatement(node.Children[1], reqVar, depth+1)
 		condStr := generateStatement(node.Children[2], reqVar, depth+1)
-		
+
 		return fmt.Sprintf(`func() bool {
 			reqBody, _ := json.Marshal(map[string]any{
 				"model":  "llama3",
@@ -1211,7 +1182,7 @@ func generateStatementRaw(node *Node, reqVar string, depth int) string {
 			if err := json.NewDecoder(resp.Body).Decode(&res); err != nil { return false }
 			return strings.TrimSpace(strings.ToLower(res.Response)) == "true"
 		}()`, condStr, varStr)
-	} else if head == "+" || head == "-" || head == "*" || head == "/" || head == "<" || head == ">" || head == "and" || head == "or" || head == "==" {
+	} else if head == "+" || head == "-" || head == "*" || head == "/" || head == "<" || head == ">" || head == "<=" || head == ">=" || head == "and" || head == "or" || head == "==" || head == "!=" || head == "=" {
 		if len(node.Children) != 3 {
 			reportError(fmt.Sprintf("%s expects 2 arguments", head), node.Line, node.Column)
 		}
@@ -1219,11 +1190,14 @@ func generateStatementRaw(node *Node, reqVar string, depth int) string {
 		if op == "and" {
 			op = "&&"
 		}
+		if op == "=" {
+			op = "=="
+		}
 		if op == "or" {
 			op = "||"
 		}
-		arg1 := generateStatement(node.Children[1], reqVar, depth+1)
-		arg2 := generateStatement(node.Children[2], reqVar, depth+1)
+		arg1 := generateExpression(node.Children[1], reqVar, depth+1)
+		arg2 := generateExpression(node.Children[2], reqVar, depth+1)
 		return fmt.Sprintf("(%s %s %s)", arg1, op, arg2)
 	} else if head == "call" {
 		if len(node.Children) < 2 {
