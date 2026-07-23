@@ -8,10 +8,11 @@ This protocol applies to every worked task in the Zero project:
 
 1. **Open a task journal.** Record your steps in a `YYYY-MM-DD_task_name.md` file if the task is complex.
 2. **Re-evaluate the model.** Pick the least expensive available model (e.g., local Ollama, Claude, or Gemini) that can do the job well for the Zero transpiler.
-3. **Route the crafted skills.** Check `.agents/skills/zero_transpiler/SKILL.md` before planning.
+3. **Route the crafted skills.** There is no project-specific `.agents/skills/zero_transpiler/SKILL.md` (checked 2026-07-23; it doesn't exist anywhere under the AI Knowledge Library). Use the general-purpose `software_development` and `automation` skills from the library instead until a Zero-specific skill is written.
 4. **Scan for helpful free tools.** Ensure you aren't rebuilding something already available.
 5. **Finish the loop.** Every code change ships with relevant tests. Run Go builds (`go build`) and Python script validations before committing.
 6. **Resuming after a delegate session limit.** If a task journal exists and the working tree already has uncommitted changes matching that journal's brief, don't assume the delegate failed or start over — a delegate (e.g. `agy`) can hit a session/quota limit *after* finishing real edits. Build, vet, and test the uncommitted diff first; if it's complete and correct, finish and commit it as-is rather than re-delegating from scratch. Confirmed 2026-07-23 when improvement #16 (Native Unit Test Blocks) was found fully implemented and working in the tree after its agy delegate hit a session limit.
+7. **Autonomous `agy --mode accept-edits` calls can be blocked by the Claude Code permission classifier.** In auto-mode sessions, invoking `agy -p "..." --mode accept-edits ...` from Bash can be denied outright by the session's auto-mode classifier (observed 2026-07-23), even though the same command works when the user is prompted interactively. When this happens, do not retry the identical call — either fall back to `--mode manual`/a mode that surfaces edits for review, ask the user to approve the Bash permission rule, or, for genuinely trivial and fully-specified diffs (e.g. a one-clause fix with an exact fix sketch already in the backlog), apply the edit directly with Edit/Write instead of delegating.
 
 ## Ranked Backlog (best ROI first)
 
