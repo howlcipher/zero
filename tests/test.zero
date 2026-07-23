@@ -1,5 +1,4 @@
 (http_server 8080
-  (import "github.com/google/uuid")
   (struct RequestData (name string))
   (route "/api" (lambda (req)
     (let (mykey (env "API_KEY"))
