@@ -1,0 +1,2 @@
+*.zero linguist-language=Scheme
+*.zero linguist-detectable=true
