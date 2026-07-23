@@ -6,7 +6,7 @@ This document is the authoritative, ranked backlog for the Zero transpiler proje
 
 This protocol applies to every worked task in the Zero project:
 
-1. **Open a task journal.** Record your steps in a `YYYY-MM-DD_task_name.md` file if the task is complex.
+1. **Open a task journal.** Record your steps in a `YYYY-MM-DD_task_name.md` file if the task is complex. This project's actual convention is `docs/journals/` (with completed journals moved to `docs/journals/archive/`) — the generic cross-project protocol points at `documentation/task_journals/`, which exists in this repo but has stayed empty; use `docs/journals/` so history stays with the ones already there. Trivial, fully-specified fixes (a one-file copy, a one-line diff with an exact fix sketch) don't need a journal at all — apply and verify directly.
 2. **Re-evaluate the model.** Pick the least expensive available model (e.g., local Ollama, Claude, or Gemini) that can do the job well for the Zero transpiler.
 3. **Route the crafted skills.** `.agents/skills/zero_transpiler/SKILL.md` exists in the AI Knowledge Library as of 2026-07-23 — consult it first for syntax, the AST node reference, and known-bug workarounds before falling back to the general-purpose `software_development` and `automation` skills.
 4. **Scan for helpful free tools.** Ensure you aren't rebuilding something already available.
