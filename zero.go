@@ -465,6 +465,7 @@ import (
 	var _ = regexp.MatchString
 	var _ = strings.Split
 	var _ = time.Sleep
+	var _ = strconv.Atoi
 `
 	if isCliApp {
 		code += cliCode
@@ -1020,6 +1021,57 @@ func generateStatementRaw(node *Node, reqVar string, depth int) string {
 			if err := json.NewDecoder(resp.Body).Decode(&res); err != nil { return "", err }
 			return res.Response, nil
 		}()`, modelStr, promptStr)
+	} else if head == "fuzzy_cast" {
+		if len(node.Children) < 3 {
+			reportError("fuzzy_cast expects (fuzzy_cast Type var [model])", node.Line, node.Column)
+		}
+		typeStr := node.Children[1].Value
+		varStr := generateStatement(node.Children[2], reqVar, depth+1)
+		modelStr := `"llama3"`
+		if len(node.Children) >= 4 {
+			modelStr = generateStatement(node.Children[3], reqVar, depth+1)
+		}
+
+		return fmt.Sprintf(`func() (%s, error) {
+			var out %s
+			reqBody, _ := json.Marshal(map[string]any{
+				"model":  %s,
+				"prompt": fmt.Sprintf("Coerce this input into a valid JSON object matching the requested schema. Reply strictly with the JSON object and nothing else.\nInput: %%s", %s),
+				"stream": false,
+				"format": "json",
+			})
+			resp, err := http.Post("http://localhost:11434/api/generate", "application/json", bytes.NewReader(reqBody))
+			if err != nil { return out, err }
+			defer resp.Body.Close()
+			var res struct {
+				Response string `+"`json:\"response\"`"+`
+			}
+			if err := json.NewDecoder(resp.Body).Decode(&res); err != nil { return out, err }
+			err = json.Unmarshal([]byte(res.Response), &out)
+			return out, err
+		}()`, typeStr, typeStr, modelStr, varStr)
+	} else if head == "assert_semantic" {
+		if len(node.Children) != 3 {
+			reportError("assert_semantic expects (assert_semantic var \"condition\")", node.Line, node.Column)
+		}
+		varStr := generateStatement(node.Children[1], reqVar, depth+1)
+		condStr := generateStatement(node.Children[2], reqVar, depth+1)
+		
+		return fmt.Sprintf(`func() bool {
+			reqBody, _ := json.Marshal(map[string]any{
+				"model":  "llama3",
+				"prompt": fmt.Sprintf("Does this input satisfy the condition: '%%s'? Reply strictly with 'true' or 'false' and nothing else.\nInput: %%s", %s, %s),
+				"stream": false,
+			})
+			resp, err := http.Post("http://localhost:11434/api/generate", "application/json", bytes.NewReader(reqBody))
+			if err != nil { return false }
+			defer resp.Body.Close()
+			var res struct {
+				Response string `+"`json:\"response\"`"+`
+			}
+			if err := json.NewDecoder(resp.Body).Decode(&res); err != nil { return false }
+			return strings.TrimSpace(strings.ToLower(res.Response)) == "true"
+		}()`, condStr, varStr)
 	} else if head == "+" || head == "-" || head == "*" || head == "/" || head == "<" || head == ">" || head == "and" || head == "or" || head == "==" {
 		if len(node.Children) != 3 {
 			reportError(fmt.Sprintf("%s expects 2 arguments", head), node.Line, node.Column)

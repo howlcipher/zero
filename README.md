@@ -70,13 +70,29 @@ Zero scripts can effortlessly read command-line parameters using `(cli_args)`:
 
 ### AI Orchestration Example
 
-Zero comes with built-in primitives to orchestrate other AIs trivially natively:
+Zero comes with built-in primitives to orchestrate other AIs natively and enforce constraints effortlessly:
 
 ```lisp
 (cli_app
   (try_let (resp (llm_generate "Translate 'Hello World' to French" "llama3"))
     (catch err (print "Error:" err))
     (print "AI says:" resp)
+  )
+  
+  (struct User (name string) (age int))
+  
+  ;; Coerce messy text into a strict struct
+  (try_let (user_struct (fuzzy_cast User "{ \"name\": \"Alice\", \"age\": 30 }"))
+    (catch err (print err))
+    (print user_struct)
+  )
+  
+  ;; Intent-based qualitative validation
+  (let (is_valid (assert_semantic "Alice is a doctor" "is professional"))
+    (if (= is_valid true)
+      (print "Approved")
+      (print "Rejected")
+    )
   )
 )
 ```

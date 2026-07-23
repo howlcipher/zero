@@ -37,7 +37,7 @@
                 <li><strong>Hallucination-proof:</strong> Designed to constrain LLMs and avoid syntax or semantic hallucinations.</li>
                 <li><strong>Immediate Semantic Feedback via Go:</strong> Transpiles to Go, allowing for immediate type checking and robust semantic validation.</li>
                 <li><strong>Abstraction Constraints:</strong> Simplifies concepts to keep the AI-generated code predictable and maintainable.</li>
-                <li><strong>LLM-Native Primitives:</strong> Built-in <code>llm_generate</code> to trivially utilize and orchestrate other AIs directly from the language.</li>
+                <li><strong>LLM-Native Primitives:</strong> Built-in <code>llm_generate</code>, <code>fuzzy_cast</code>, and <code>assert_semantic</code> to trivially utilize, orchestrate, and enforce constraints on other AIs directly from the language.</li>
                 <li><strong>AST-Level Semantic Patching:</strong> Allows AIs to surgically update specific functions via a <code>(patch ...)</code> node without perfectly rewriting large files.</li>
                 <li><strong>Native Automation:</strong> Built-in support for File I/O (<code>read_file</code>, <code>write_file</code>, <code>mkdir</code>), subprocess execution (<code>exec</code>), CLI argument parsing (<code>cli_args</code>), and string manipulation suite.</li>
                 <li><strong>Advanced Control Flow:</strong> Provides primitives tailored for AI parsers and state machines, including <code>while</code> loops, <code>match</code> pattern matching, and <code>set</code> variable mutations.</li>

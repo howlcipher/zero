@@ -1,0 +1,12 @@
+(cli_app
+  (struct User (name string) (age int))
+  
+  (try_let (user_struct (fuzzy_cast User "{ \"name\": \"Alice\", \"age\": 30 }"))
+    (catch err (print err))
+    (print user_struct)
+  )
+  
+  (let (is_valid (assert_semantic "Alice is a doctor" "is professional"))
+    (print is_valid)
+  )
+)
