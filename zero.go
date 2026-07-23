@@ -489,7 +489,7 @@ func generateStatement(node *Node, reqVar string, depth int) string {
 	}
 	head := node.Children[0].Value
 	switch head {
-	case "return", "res_json", "res", "let", "do", "try_let", "spawn", "if", "print", "db_connect", "sql_query", "append", "map_set", "map_delete", "for", "sleep", "write_file", "mkdir", "exec", "while", "match", "set":
+	case "return", "res_json", "res", "let", "do", "try_let", "spawn", "if", "print", "db_connect", "sql_query", "append", "map_set", "map_delete", "for", "sleep", "write_file", "mkdir", "exec", "while", "match", "set", "call":
 		if node.Filename != "" {
 			return fmt.Sprintf("//line %s:%d\n%s", node.Filename, node.Line, code)
 		}
@@ -1033,6 +1033,21 @@ func generateStatementRaw(node *Node, reqVar string, depth int) string {
 		arg1 := generateStatement(node.Children[1], reqVar, depth+1)
 		arg2 := generateStatement(node.Children[2], reqVar, depth+1)
 		return fmt.Sprintf("(%s %s %s)", arg1, op, arg2)
+	} else if head == "call" {
+		if len(node.Children) < 2 {
+			reportError("call expects (call func args...)", node.Line, node.Column)
+		}
+		funcName := node.Children[1].Value
+		var args []string
+		for j := 2; j < len(node.Children); j++ {
+			argNode := node.Children[j]
+			if argNode.Type == "STRING" {
+				args = append(args, fmt.Sprintf("%q", argNode.Value))
+			} else {
+				args = append(args, argNode.Value)
+			}
+		}
+		return fmt.Sprintf("		%s(%s)", funcName, strings.Join(args, ", "))
 	}
 	reportError(fmt.Sprintf("Unknown statement: %s", head), node.Line, node.Column)
 	return ""
@@ -1129,6 +1144,66 @@ func applyPatches(node *Node) {
 	node.Children = newChildren
 }
 
+func applyWithContext(node *Node, ctxVars []*Node) *Node {
+	if node == nil {
+		return nil
+	}
+	if node.Type != "List" || len(node.Children) == 0 {
+		return node
+	}
+
+	head := node.Children[0].Value
+	if head == "with_context" {
+		if len(node.Children) < 3 {
+			reportError("with_context expects (with_context vars body...)", node.Line, node.Column)
+		}
+		varsNode := node.Children[1]
+		var newCtxVars []*Node
+		newCtxVars = append(newCtxVars, ctxVars...)
+		if varsNode.Type == "SYMBOL" {
+			newCtxVars = append(newCtxVars, varsNode)
+		} else if varsNode.Type == "List" {
+			for _, v := range varsNode.Children {
+				if v.Type != "SYMBOL" {
+					reportError("with_context vars must be symbols", v.Line, v.Column)
+				}
+				newCtxVars = append(newCtxVars, v)
+			}
+		} else {
+			reportError("with_context expects symbol or list of symbols", varsNode.Line, varsNode.Column)
+		}
+
+		doNode := &Node{Type: "List", Line: node.Line, Column: node.Column, Filename: node.Filename}
+		doNode.Children = append(doNode.Children, &Node{Type: "SYMBOL", Value: "do", Line: node.Line, Column: node.Column})
+		for i := 2; i < len(node.Children); i++ {
+			doNode.Children = append(doNode.Children, applyWithContext(node.Children[i], newCtxVars))
+		}
+		return doNode
+	}
+
+	if head == "call" && len(ctxVars) > 0 {
+		newNode := &Node{Type: "List", Line: node.Line, Column: node.Column, Filename: node.Filename}
+		newNode.Children = append(newNode.Children, node.Children[0])
+		if len(node.Children) > 1 {
+			newNode.Children = append(newNode.Children, node.Children[1])
+		}
+		for _, cv := range ctxVars {
+			newNode.Children = append(newNode.Children, copyNode(cv))
+		}
+		for i := 2; i < len(node.Children); i++ {
+			newNode.Children = append(newNode.Children, applyWithContext(node.Children[i], ctxVars))
+		}
+		return newNode
+	}
+
+	newNode := &Node{Type: "List", Line: node.Line, Column: node.Column, Filename: node.Filename}
+	newNode.Children = append(newNode.Children, node.Children[0])
+	for i := 1; i < len(node.Children); i++ {
+		newNode.Children = append(newNode.Children, applyWithContext(node.Children[i], ctxVars))
+	}
+	return newNode
+}
+
 func main() {
 	if len(os.Args) < 2 {
 		reportError("Missing file argument", 0, 0)
@@ -1149,6 +1224,7 @@ func main() {
 	expandIncludes(ast, filepath.Dir(os.Args[1]), 0)
 
 	applyPatches(ast)
+	ast = applyWithContext(ast, nil)
 
 	goCode := generateCode(ast)
 

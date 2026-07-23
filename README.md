@@ -82,6 +82,24 @@ Zero supports surgically updating functions without rewriting the entire file, w
 )
 ```
 
+### Implicit Context Threading
+
+Zero can automatically inject context variables into function calls within a specific block, reducing the cognitive load for AIs to remember to thread variables like `req`, `db`, or `ctx`:
+
+```lisp
+(cli_app
+  (defun fetch_user (db user_id)
+    (print "Fetching user" user_id "from" db)
+  )
+  (let (db "PostgreSQL")
+    (with_context (db)
+      ;; Automatically expanded to (call fetch_user db 123)
+      (call fetch_user 123)
+    )
+  )
+)
+```
+
 ## How to Run
 
 1. **Transpile and Run in one step**:

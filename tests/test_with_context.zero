@@ -1,0 +1,15 @@
+(cli_app
+	(defun myfunc (db req arg1)
+		(do
+			(print db req arg1)
+			(return "ok")
+		)
+	)
+	(let (db "db_conn")
+		(let (req "request")
+			(with_context (db req)
+				(print (call myfunc "hello"))
+			)
+		)
+	)
+)
