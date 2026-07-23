@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="Zero is an AI-first, Lisp-like coding language designed specifically to be written by LLMs, transpiling to Go.">
+    <title>Zero Transpiler</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <header>
+        <h1 id="main-title">Zero Transpiler</h1>
+        <button id="theme-toggle">Toggle Theme</button>
+    </header>
+
+    <main>
+        <section id="why-zero">
+            <h2>Why Zero?</h2>
+            <ul>
+                <li><strong>Hallucination-proof:</strong> Designed to constrain LLMs and avoid syntax or semantic hallucinations.</li>
+                <li><strong>Immediate Semantic Feedback via Go:</strong> Transpiles to Go, allowing for immediate type checking and robust semantic validation.</li>
+                <li><strong>Abstraction Constraints:</strong> Simplifies concepts to keep the AI-generated code predictable and maintainable.</li>
+            </ul>
+        </section>
+
+        <section id="hello-world">
+            <h2>Hello World HTTP Server</h2>
+            <pre><code>(def http-server (port)
+  (http/listen port
+    (fn (req res)
+      (res/send 200 "Hello, World!"))))
+
+(http-server 8080)</code></pre>
+        </section>
+    </main>
+
+    <script src="script.js"></script>
+</body>
+</html>
