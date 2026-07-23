@@ -22,15 +22,20 @@
     <link rel="icon" type="image/jpeg" href="favicon.jpg">
 </head>
 <body>
+    <a class="skip-link" href="#main-content">Skip to main content</a>
+    <div class="container">
     <header>
-        <h1 id="main-title">Zero Transpiler</h1>
+        <div>
+            <p class="kicker">// system online — s-expressions for autonomous agents</p>
+            <h1 id="main-title">Zero Transpiler</h1>
+        </div>
         <div style="display: flex; gap: 1rem; align-items: center; margin-top: 10px;">
             <a href="https://github.com/howlcipher/zero" target="_blank" style="color: inherit; text-decoration: underline; font-family: inherit;">[ View on GitHub ]</a>
             <button id="theme-toggle">Toggle Theme</button>
         </div>
     </header>
 
-    <main>
+    <main id="main-content">
         <section id="why-zero">
             <h2>Why Zero?</h2>
             <ul>
@@ -107,6 +112,12 @@ ollama pull llama3</code></pre>
             <p>Zero wins clearly on its designed niche (HTTP/JSON handlers) and is mid-pack on total tokens &mdash; but it is not a uniform win across every program type, and its total write time here is inflated by real, now-fixed-in-the-backlog transpiler gaps found mid-benchmark. See the full write-up for the honest breakdown.</p>
         </section>
     </main>
+
+    <footer>
+        <span><span class="status-dot" aria-hidden="true"></span>STATUS: OPERATIONAL &mdash; ZERO://TRANSPILER</span>
+        <a href="https://github.com/howlcipher/zero" target="_blank">github.com/howlcipher/zero</a>
+    </footer>
+    </div>
 
     <script src="script.js"></script>
 </body>
