@@ -235,12 +235,11 @@ Zero supports Test-Driven Development natively. You can include `(test "descript
     (let (result (call add 2 3))
       (if (!= result 5)
         (print "Error: expected 5 got" result)
-        (print "OK: add(2, 3) == 5")
       )
     )
   )
 )
 ```
 
-> Note: as of 2026-07-23, `if` requires an else branch (bug #16, pending) and `return` only supports bare variables/literals, not inline compound expressions like `(return (+ a b))` (bug #13, pending) — both are reflected in the example above by returning through a `let`-bound variable and providing both `if` branches. See `bugs.md` for status.
+> Note: as of 2026-07-23, `return` only supports bare variables/literals, not inline compound expressions like `(return (+ a b))` (bug #13, pending) — reflected in the example above by returning through a `let`-bound variable. (Single-branch `if` with no `else`, shown above, was fixed as bug #16.) See `bugs.md` for status.
 
