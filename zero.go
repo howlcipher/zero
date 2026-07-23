@@ -267,6 +267,21 @@ func generateCode(node *Node) (string, string) {
 	var cliCode string
 	var testCode string
 	var extraImports []string
+	defaultImports := map[string]bool{
+		"bytes":         true,
+		"database/sql":  true,
+		"encoding/json": true,
+		"fmt":           true,
+		"io":            true,
+		"net/http":      true,
+		"os":            true,
+		"os/exec":       true,
+		"regexp":        true,
+		"strconv":       true,
+		"strings":       true,
+		"time":          true,
+	}
+	seenImports := make(map[string]bool)
 
 	for i := startIndex; i < len(node.Children); i++ {
 		handlerNode := node.Children[i]
@@ -324,7 +339,11 @@ func generateCode(node *Node) (string, string) {
 			if pkgNode.Type != "STRING" {
 				reportError("import package must be a string", pkgNode.Line, pkgNode.Column)
 			}
-			extraImports = append(extraImports, fmt.Sprintf("\t%q\n", pkgNode.Value))
+			pkg := pkgNode.Value
+			if !defaultImports[pkg] && !seenImports[pkg] {
+				seenImports[pkg] = true
+				extraImports = append(extraImports, pkg)
+			}
 			continue
 		}
 
@@ -486,7 +505,7 @@ import (
 	"time"
 `
 	for _, imp := range extraImports {
-		code += imp
+		code += fmt.Sprintf("\t%q\n", imp)
 	}
 	code += `)
 `
@@ -538,7 +557,11 @@ import (
 	"time"
 `
 		for _, imp := range extraImports {
-			fullTestCode += imp
+			parts := strings.Split(imp, "/")
+			pkgName := parts[len(parts)-1]
+			if strings.Contains(testCode, pkgName+".") {
+				fullTestCode += fmt.Sprintf("\t%q\n", imp)
+			}
 		}
 		fullTestCode += `)
 
