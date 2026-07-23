@@ -310,6 +310,25 @@ Zero includes string utilities for splitting, joining, and pattern matching text
 )
 ```
 
+### Type Conversion
+
+Zero provides deterministic primitives for type casting, useful when reading unstructured strings from file I/O or CLI arguments: `to_int`, `to_float`, `to_string`, and `bytes_to_string`.
+
+```lisp
+(cli_app
+  (try_let (num (to_int "42"))
+    (catch err (print "Error:" err))
+    (print (+ num 1)) ;; Outputs 43
+  )
+  
+  ;; bytes_to_string is especially useful with read_file which returns []byte
+  (try_let (content (read_file "config.txt"))
+    (catch err (print "IO error:" err))
+    (print "File says:" (bytes_to_string content))
+  )
+)
+```
+
 ### Security & Auth Middleware
 
 HTTP servers can intercept and protect routes using `middleware` blocks that read environment variables via `env` and call `(next)` to pass execution down the handler stack.
