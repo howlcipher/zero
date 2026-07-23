@@ -108,6 +108,7 @@ Zero comes with built-in primitives to orchestrate other AIs natively and enforc
 
 ```lisp
 (cli_app
+  ;; Ask another LLM directly and handle its error like any other fallible call
   (try_let (resp (llm_generate "Translate 'Hello World' to French" "llama3"))
     (catch err (print "Error:" err))
     (print "AI says:" resp)
@@ -115,11 +116,13 @@ Zero comes with built-in primitives to orchestrate other AIs natively and enforc
 
   (struct User (name string) (age int))
 
+  ;; Coerce messy, unstructured text into a strict struct
   (try_let (user_struct (fuzzy_cast User "{ \"name\": \"Alice\", \"age\": 30 }"))
     (catch err (print err))
     (print user_struct)
   )
 
+  ;; Enforce a qualitative, natural-language condition instead of a brittle regex
   (let (is_valid (assert_semantic "Alice is a doctor" "is professional"))
     (if (= is_valid true)
       (print "Approved")
@@ -147,6 +150,7 @@ Zero can automatically inject context variables into function calls within a spe
 
 ```lisp
 (cli_app
+  ;; db is captured by with_context below, so callers never pass it explicitly
   (defun fetch_user (db user_id)
     (type_hint user_id "string")
     (type_hint return "string")
