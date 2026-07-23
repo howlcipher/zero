@@ -937,6 +937,51 @@ func expandIncludes(node *Node, baseDir string, depth int) {
 	node.Children = newChildren
 }
 
+func applyPatches(node *Node) {
+	if node == nil || node.Type != "List" {
+		return
+	}
+	var newChildren []*Node
+	for i := 0; i < len(node.Children); i++ {
+		child := node.Children[i]
+		if child.Type == "List" && len(child.Children) == 3 && child.Children[0].Type == "SYMBOL" && child.Children[0].Value == "patch" {
+			funcNameNode := child.Children[1]
+			if funcNameNode.Type != "SYMBOL" {
+				reportError("patch expects a symbol for function name", funcNameNode.Line, funcNameNode.Column)
+			}
+			funcName := funcNameNode.Value
+			newBody := child.Children[2]
+
+			found := false
+			for j := 0; j < len(newChildren); j++ {
+				target := newChildren[j]
+				if target.Type == "List" && len(target.Children) >= 4 && target.Children[0].Type == "SYMBOL" && target.Children[0].Value == "defun" && target.Children[1].Value == funcName {
+					target.Children[len(target.Children)-1] = copyNode(newBody)
+					found = true
+					break
+				}
+			}
+			if !found {
+				for j := i + 1; j < len(node.Children); j++ {
+					target := node.Children[j]
+					if target.Type == "List" && len(target.Children) >= 4 && target.Children[0].Type == "SYMBOL" && target.Children[0].Value == "defun" && target.Children[1].Value == funcName {
+						target.Children[len(target.Children)-1] = copyNode(newBody)
+						found = true
+						break
+					}
+				}
+			}
+			if !found {
+				reportError(fmt.Sprintf("patch target function %q not found", funcName), child.Line, child.Column)
+			}
+		} else {
+			applyPatches(child)
+			newChildren = append(newChildren, child)
+		}
+	}
+	node.Children = newChildren
+}
+
 func main() {
 	if len(os.Args) < 2 {
 		reportError("Missing file argument", 0, 0)
@@ -955,6 +1000,8 @@ func main() {
 	}
 
 	expandIncludes(ast, filepath.Dir(os.Args[1]), 0)
+
+	applyPatches(ast)
 
 	goCode := generateCode(ast)
 

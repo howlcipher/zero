@@ -70,6 +70,18 @@ Zero comes with built-in primitives to orchestrate other AIs trivially natively:
 )
 ```
 
+### AST-Level Semantic Patching
+
+Zero supports surgically updating functions without rewriting the entire file, which is highly beneficial for LLMs struggling with large file generation:
+
+```lisp
+(cli_app
+  (defun foo (x) (return "Old behavior: "))
+  (patch foo (return "New patched behavior: "))
+  (let (v (call foo "test")) (print v))
+)
+```
+
 ## How to Run
 
 1. **Transpile and Run in one step**:

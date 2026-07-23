@@ -1,0 +1,5 @@
+(cli_app
+  (defun foo (x) (return "old string"))
+  (patch foo (return "patched string"))
+  (let (v (call foo "hello")) (print v))
+)
