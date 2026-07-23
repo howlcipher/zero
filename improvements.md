@@ -11,6 +11,7 @@ This protocol applies to every worked task in the Zero project:
 3. **Route the crafted skills.** Check `.agents/skills/zero_transpiler/SKILL.md` before planning.
 4. **Scan for helpful free tools.** Ensure you aren't rebuilding something already available.
 5. **Finish the loop.** Every code change ships with relevant tests. Run Go builds (`go build`) and Python script validations before committing.
+6. **Resuming after a delegate session limit.** If a task journal exists and the working tree already has uncommitted changes matching that journal's brief, don't assume the delegate failed or start over — a delegate (e.g. `agy`) can hit a session/quota limit *after* finishing real edits. Build, vet, and test the uncommitted diff first; if it's complete and correct, finish and commit it as-is rather than re-delegating from scratch. Confirmed 2026-07-23 when improvement #16 (Native Unit Test Blocks) was found fully implemented and working in the tree after its agy delegate hit a session limit.
 
 ## Ranked Backlog (best ROI first)
 
