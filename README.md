@@ -211,3 +211,24 @@ Zero has native support for file operations, subprocess execution, advanced loop
   (exec "rm" "hello.txt")
 )
 ```
+
+### Native Unit Test Blocks
+
+Zero supports Test-Driven Development natively. You can include `(test "description" ...)` blocks in your code, which the transpiler will extract and convert directly into Go test functions (`_test.go`). This allows AIs to iterate rapidly with test-driven workflows:
+
+```lisp
+(cli_app
+  (defun add (a b)
+    (return (+ a b))
+  )
+  
+  (test "add function returns correct sum"
+    (let (result (call add 2 3))
+      (if (!= result 5)
+        (print "Error: expected 5 got" result)
+      )
+    )
+  )
+)
+```
+
