@@ -22,6 +22,36 @@ This will allow:
 - A dedicated standard library (`std.zero`, `http.zero`).
 - Focus on pure AI optimizations like LLM-native primitives, AST-level semantic patching, and implicit context threading without being tied to a general knowledge library.
 
+## Installation & Requirements
+
+To write and run Zero manually, you only need **Go**. To use the AI Orchestrator to generate Zero code, you need a few additional tools.
+
+### Prerequisites
+1. **Go 1.20+**: Required to compile the transpiled Go code.
+2. **Python 3.10+**: Required for the AI Orchestrator script.
+3. **Ollama**: Required to run local LLMs (like `llama3`) for generating code.
+
+### Setup Steps
+1. Clone the repository:
+   ```bash
+   git clone https://github.com/howlcipher/zero.git
+   cd zero
+   ```
+2. (Optional but recommended) Set up a Python virtual environment:
+   ```bash
+   python -m venv venv
+   source venv/bin/activate
+   ```
+3. Install the required Python packages for the orchestrator:
+   ```bash
+   pip install outlines openai
+   ```
+4. Start Ollama and download the Llama 3 model (in a separate terminal):
+   ```bash
+   ollama serve
+   ollama pull llama3
+   ```
+
 ## Hello World Example
 
 Here is a basic HTTP server written in Zero that serves a text response and a JSON endpoint.
@@ -149,6 +179,23 @@ Zero can automatically inject context variables into function calls within a spe
    ```
 
 The server will spin up on `http://localhost:8080`.
+
+## Generating Code with AI (Orchestrator)
+
+Zero is designed to be written by an AI. We provide an orchestrator script (`orchestrator.py`) that handles the interaction with the LLM, strictly enforces syntax boundaries using `outlines`, and handles error feedback loops.
+
+1. Ensure Ollama is running (`ollama serve`) and the `llama3` model is available.
+2. Open `orchestrator.py` and modify the `prompt` variable to instruct the AI on what to build.
+   ```python
+   prompt = "Build a web server on port 8080 with a root route returning 'root' and an /api route returning 'api'."
+   ```
+3. Run the orchestrator:
+   ```bash
+   python orchestrator.py
+   ```
+4. The AI will generate a `.zero` file (by default `app.zero`). The orchestrator will automatically run the Go transpiler.
+5. **Self-Correction loop**: If the transpiler encounters a semantic error (e.g. invalid arguments or missing variables), it outputs a localized JSON error. The orchestrator intercepts this error and sends it back to the AI for automatic self-correction.
+6. Once transpilation succeeds, the orchestrator compiles the Go binary and executes the newly generated application.
 
 ### Automation and Advanced Control Flow
 

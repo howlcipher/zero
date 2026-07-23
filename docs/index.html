@@ -46,6 +46,34 @@
             </ul>
         </section>
 
+        <section id="installation">
+            <h2>Installation & Setup</h2>
+            <p>To use the AI Orchestrator to generate Zero code, you need a few tools:</p>
+            <ul>
+                <li><strong>Go 1.20+</strong> (To compile the transpiled code)</li>
+                <li><strong>Python 3.10+</strong> (For the orchestrator script)</li>
+                <li><strong>Ollama</strong> (To run local LLMs like <code>llama3</code>)</li>
+            </ul>
+            <pre><code>git clone https://github.com/howlcipher/zero.git
+cd zero
+pip install outlines openai
+ollama serve
+ollama pull llama3</code></pre>
+        </section>
+
+        <section id="orchestrator">
+            <h2>Generating Code with AI (Orchestrator)</h2>
+            <p>We provide an orchestrator script (<code>orchestrator.py</code>) that handles interaction with the LLM, strictly enforces syntax boundaries, and handles error feedback loops.</p>
+            <ol>
+                <li>Ensure Ollama is running and the <code>llama3</code> model is available.</li>
+                <li>Open <code>orchestrator.py</code> and modify the <code>prompt</code> variable to instruct the AI on what to build.</li>
+                <li>Run the orchestrator: <code>python orchestrator.py</code></li>
+                <li>The AI will generate a `.zero` file. The orchestrator will automatically run the Go transpiler.</li>
+                <li>If the transpiler encounters a semantic error, the orchestrator intercepts it and sends it back to the AI for automatic self-correction.</li>
+                <li>Once successful, it compiles the Go binary and executes the application.</li>
+            </ol>
+        </section>
+
         <section id="hello-world">
             <h2>Hello World HTTP Server</h2>
             <pre><code>(http_server 8080
