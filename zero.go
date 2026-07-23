@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"unicode"
 )
@@ -100,7 +101,7 @@ func (l *Lexer) NextToken() Token {
 		return Token{Type: TokenRParen, Value: ")", Line: startLine, Column: startCol}
 	}
 	if ch == '"' {
-		val := ""
+		raw := "\""
 		for {
 			nextCh := l.nextChar()
 			if nextCh == 0 {
@@ -111,19 +112,21 @@ func (l *Lexer) NextToken() Token {
 				if escapedCh == 0 {
 					reportError("Unterminated string escape", startLine, startCol)
 				}
-				if escapedCh == 'n' {
-					val += "\n"
-				} else if escapedCh == 't' {
-					val += "\t"
+				if escapedCh == '\'' {
+					raw += "'"
 				} else {
-					val += string(escapedCh)
+					raw += "\\" + string(escapedCh)
 				}
 				continue
 			}
+			raw += string(nextCh)
 			if nextCh == '"' {
 				break
 			}
-			val += string(nextCh)
+		}
+		val, err := strconv.Unquote(raw)
+		if err != nil {
+			reportError("Invalid string literal: "+err.Error(), startLine, startCol)
 		}
 		return Token{Type: TokenString, Value: val, Line: startLine, Column: startCol}
 	}
@@ -432,6 +435,7 @@ func generateCode(node *Node) string {
 	code := `package main
 
 import (
+	"bytes"
 	"database/sql"
 	"encoding/json"
 	"fmt"
@@ -842,6 +846,31 @@ func generateStatementRaw(node *Node, reqVar string, depth int) string {
 			defer resp.Body.Close()
 			return io.ReadAll(resp.Body)
 		}()`, methodStr, urlStr)
+	} else if head == "llm_generate" {
+		if len(node.Children) < 2 {
+			reportError("llm_generate expects (llm_generate prompt [model])", node.Line, node.Column)
+		}
+		promptStr := generateStatement(node.Children[1], reqVar, depth+1)
+		modelStr := `"llama3"`
+		if len(node.Children) >= 3 {
+			modelStr = generateStatement(node.Children[2], reqVar, depth+1)
+		}
+
+		return fmt.Sprintf(`func() (string, error) {
+			reqBody, _ := json.Marshal(map[string]any{
+				"model":  %s,
+				"prompt": %s,
+				"stream": false,
+			})
+			resp, err := http.Post("http://localhost:11434/api/generate", "application/json", bytes.NewReader(reqBody))
+			if err != nil { return "", err }
+			defer resp.Body.Close()
+			var res struct {
+				Response string `+"`json:\"response\"`"+`
+			}
+			if err := json.NewDecoder(resp.Body).Decode(&res); err != nil { return "", err }
+			return res.Response, nil
+		}()`, modelStr, promptStr)
 	}
 	reportError(fmt.Sprintf("Unknown statement: %s", head), node.Line, node.Column)
 	return ""

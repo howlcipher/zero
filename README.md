@@ -57,6 +57,19 @@ Create `cli_hello.zero`:
 )
 ```
 
+### AI Orchestration Example
+
+Zero comes with built-in primitives to orchestrate other AIs trivially natively:
+
+```lisp
+(cli_app
+  (try_let (resp (llm_generate "Translate 'Hello World' to French" "llama3"))
+    (catch err (print "Error:" err))
+    (print "AI says:" resp)
+  )
+)
+```
+
 ## How to Run
 
 1. **Transpile and Run in one step**:
