@@ -104,3 +104,18 @@ Zero supports surgically updating functions without rewriting the entire file, w
    ```
 
 The server will spin up on `http://localhost:8080`.
+
+### Automation and File I/O
+
+Zero has native support for file operations, subprocess execution, and string manipulation for easy automation scripting:
+
+```lisp
+(cli_app
+  (write_file "hello.txt" "Hello from Zero!")
+  (try_let (content (read_file "hello.txt"))
+    (catch err (print err))
+    (print content)
+  )
+  (exec "rm" "hello.txt")
+)
+```

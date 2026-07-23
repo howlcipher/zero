@@ -442,6 +442,10 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"os/exec"
+	"regexp"
+	"strings"
+	"time"
 `
 	for _, imp := range extraImports {
 		code += imp
@@ -456,6 +460,10 @@ import (
 	var _ = io.ReadAll
 	var _ = bytes.NewBuffer
 	var _ = http.DefaultClient
+	var _ = exec.Command
+	var _ = regexp.MatchString
+	var _ = strings.Split
+	var _ = time.Sleep
 `
 	if isCliApp {
 		code += cliCode
@@ -481,7 +489,7 @@ func generateStatement(node *Node, reqVar string, depth int) string {
 	}
 	head := node.Children[0].Value
 	switch head {
-	case "return", "res_json", "res", "let", "do", "try_let", "spawn", "if", "print", "db_connect", "sql_query", "append", "map_set", "map_delete", "for":
+	case "return", "res_json", "res", "let", "do", "try_let", "spawn", "if", "print", "db_connect", "sql_query", "append", "map_set", "map_delete", "for", "sleep", "write_file", "mkdir", "exec", "while":
 		if node.Filename != "" {
 			return fmt.Sprintf("//line %s:%d\n%s", node.Filename, node.Line, code)
 		}
@@ -651,10 +659,10 @@ func generateStatementRaw(node *Node, reqVar string, depth int) string {
 					}
 					// Handled downstream
 				} else {
-					valStr = valNode.Value
+					valStr = generateStatement(valNode, reqVar, depth+1)
 				}
 			} else {
-				valStr = valNode.Value
+				valStr = generateStatement(valNode, reqVar, depth+1)
 			}
 
 			if valNode.Type == "List" && len(valNode.Children) > 0 && valNode.Children[0].Value == "parse_json" {
@@ -778,11 +786,7 @@ func generateStatementRaw(node *Node, reqVar string, depth int) string {
 	} else if head == "print" {
 		var args []string
 		for j := 1; j < len(node.Children); j++ {
-			if node.Children[j].Type == "STRING" {
-				args = append(args, fmt.Sprintf("%q", node.Children[j].Value))
-			} else {
-				args = append(args, node.Children[j].Value)
-			}
+			args = append(args, generateStatement(node.Children[j], reqVar, depth+1))
 		}
 		return fmt.Sprintf("		fmt.Println(%s)", strings.Join(args, ", "))
 	} else if head == "db_connect" {
@@ -846,6 +850,107 @@ func generateStatementRaw(node *Node, reqVar string, depth int) string {
 			_ = %s
 %s
 		}`, itemNode, listNode, itemNode, bodyCode)
+	} else if head == "while" {
+		if len(node.Children) != 3 {
+			reportError("while expects (while cond body)", node.Line, node.Column)
+		}
+		condNode := node.Children[1]
+		if condNode.Type != "List" || len(condNode.Children) != 3 || condNode.Children[0].Value != "=" {
+			reportError("while cond expects (= a b)", condNode.Line, condNode.Column)
+		}
+		left := condNode.Children[1].Value
+		if left == "req.method" {
+			left = reqVar + ".Method"
+		}
+		right := condNode.Children[2].Value
+		if condNode.Children[2].Type == "STRING" {
+			right = fmt.Sprintf("%q", right)
+		}
+		bodyCode := generateStatement(node.Children[2], reqVar, depth+1)
+		return fmt.Sprintf(`		for %s == %s {
+%s
+		}`, left, right, bodyCode)
+	} else if head == "sleep" {
+		if len(node.Children) != 2 {
+			reportError("sleep expects (sleep ms)", node.Line, node.Column)
+		}
+		msStr := generateStatement(node.Children[1], reqVar, depth+1)
+		return fmt.Sprintf("		time.Sleep(time.Duration(%s) * time.Millisecond)", msStr)
+	} else if head == "read_file" {
+		if len(node.Children) != 2 {
+			reportError("read_file expects (read_file path)", node.Line, node.Column)
+		}
+		pathStr := generateStatement(node.Children[1], reqVar, depth+1)
+		return fmt.Sprintf("os.ReadFile(%s)", pathStr)
+	} else if head == "write_file" {
+		if len(node.Children) != 3 {
+			reportError("write_file expects (write_file path data)", node.Line, node.Column)
+		}
+		pathStr := generateStatement(node.Children[1], reqVar, depth+1)
+		dataStr := generateStatement(node.Children[2], reqVar, depth+1)
+		return fmt.Sprintf("		os.WriteFile(%s, []byte(%s), 0644)", pathStr, dataStr)
+	} else if head == "mkdir" {
+		if len(node.Children) != 2 {
+			reportError("mkdir expects (mkdir path)", node.Line, node.Column)
+		}
+		pathStr := generateStatement(node.Children[1], reqVar, depth+1)
+		return fmt.Sprintf("		os.MkdirAll(%s, 0755)", pathStr)
+	} else if head == "exec" {
+		if len(node.Children) < 2 {
+			reportError("exec expects (exec cmd args...)", node.Line, node.Column)
+		}
+		cmdStr := generateStatement(node.Children[1], reqVar, depth+1)
+		var args []string
+		for j := 2; j < len(node.Children); j++ {
+			args = append(args, generateStatement(node.Children[j], reqVar, depth+1))
+		}
+		return fmt.Sprintf("func() ([]byte, error) { return exec.Command(%s, %s).CombinedOutput() }()", cmdStr, strings.Join(args, ", "))
+	} else if head == "str_split" {
+		if len(node.Children) != 3 {
+			reportError("str_split expects (str_split s sep)", node.Line, node.Column)
+		}
+		sStr := generateStatement(node.Children[1], reqVar, depth+1)
+		sepStr := generateStatement(node.Children[2], reqVar, depth+1)
+		return fmt.Sprintf("strings.Split(%s, %s)", sStr, sepStr)
+	} else if head == "str_join" {
+		if len(node.Children) != 3 {
+			reportError("str_join expects (str_join list sep)", node.Line, node.Column)
+		}
+		listStr := generateStatement(node.Children[1], reqVar, depth+1)
+		sepStr := generateStatement(node.Children[2], reqVar, depth+1)
+		return fmt.Sprintf("strings.Join(%s, %s)", listStr, sepStr)
+	} else if head == "regex_match" {
+		if len(node.Children) != 3 {
+			reportError("regex_match expects (regex_match pattern s)", node.Line, node.Column)
+		}
+		patStr := generateStatement(node.Children[1], reqVar, depth+1)
+		sStr := generateStatement(node.Children[2], reqVar, depth+1)
+		return fmt.Sprintf("regexp.MatchString(%s, %s)", patStr, sStr)
+	} else if head == "rate_limit" {
+		if len(node.Children) != 3 {
+			reportError("rate_limit expects (rate_limit \"10/s\" body)", node.Line, node.Column)
+		}
+		rateStr := node.Children[1].Value
+		bodyCode := generateStatement(node.Children[2], reqVar, depth+1)
+		// simple implementation: "10/s" -> sleep 100ms
+		ms := 1000
+		if strings.HasSuffix(rateStr, "/s") {
+			n, _ := strconv.Atoi(strings.TrimSuffix(rateStr, "/s"))
+			if n > 0 { ms = 1000 / n }
+		}
+		return fmt.Sprintf(`		{
+			time.Sleep(%d * time.Millisecond)
+			%s
+		}`, ms, bodyCode)
+	} else if head == "retry" {
+		if len(node.Children) != 3 {
+			reportError("retry expects (retry times body)", node.Line, node.Column)
+		}
+		timesStr := generateStatement(node.Children[1], reqVar, depth+1)
+		bodyCode := generateStatement(node.Children[2], reqVar, depth+1)
+		return fmt.Sprintf(`		for i := 0; i < %s; i++ {
+			%s
+		}`, timesStr, bodyCode)
 	} else if head == "fetch" {
 		if len(node.Children) != 3 {
 			reportError("fetch expects (fetch url method)", node.Line, node.Column)

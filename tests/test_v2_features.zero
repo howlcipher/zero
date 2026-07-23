@@ -1,0 +1,10 @@
+(cli_app
+    (print (str_join (str_split "hello world" " ") "-"))
+    (write_file "test_v2.txt" "test")
+    (try_let (file_content (read_file "test_v2.txt"))
+        (catch err (print err))
+        (print file_content)
+    )
+    (exec "rm" "test_v2.txt")
+    (print "done")
+)

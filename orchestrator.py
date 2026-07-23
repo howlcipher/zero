@@ -30,7 +30,7 @@ def main():
         exp: "(" symbol ( " " (exp | string | number) )* ")"
         number: /[0-9]+/
         string: /"[^"]*"/
-        symbol: /[a-zA-Z_=\.\-]+/
+        symbol: /[a-zA-Z0-9_=\.\-\/\+\*\<\>]+/
     """
     
     print("Compiling CFG generator... (this may take several minutes for large local models)")
