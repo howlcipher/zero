@@ -1,0 +1,11 @@
+Implement Improvement #16: Native Unit Test Blocks (`test`) in `/run/media/system/tallgeese/dev/zero/zero.go`.
+
+Requirements:
+1. In `/run/media/system/tallgeese/dev/zero/zero.go`, modify `generateCode` to look for a `test` node at the root level of `http_server` or `cli_app` (similar to `route`, `defun`, etc.).
+2. The format is `(test "description" body...)`.
+3. When parsing `test` blocks, generate standard Go `TestXxx(t *testing.T)` functions. The description can be converted to a valid Go function name by removing spaces and special chars, e.g. `Test_description_string`.
+4. `generateCode` currently writes everything to a single `code` string and `main()` writes it to `server.go`. You need to change `generateCode` to return both the main code string and a test code string: `func generateCode(node *Node) (string, string)`.
+5. Modify `main()` so that it writes the main code to `server.go` and the test code (if any) to `server_test.go`.
+6. `server_test.go` should have `package main` and import `"testing"`.
+7. Use `generateStatement(bodyNode, "", 0)` to generate the test body inside the `TestXxx` functions.
+8. Also add a simple test `.zero` file at `/run/media/system/tallgeese/dev/zero/tests/test_feature.zero` that uses the `(cli_app (test "desc" (print "hello")))` syntax.
