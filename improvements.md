@@ -43,15 +43,15 @@ Pending rows are ranked by a diminishing-returns score:
 | 42 | [Clean up file structure](#42-clean-up-file-structure) | Done (2026-07-23) | 4.00 (4×1.0÷1) | Sonnet 3.5 | Gemini 1.5 Pro | The root directory is cluttered with `.zero` test files and examples. Needs organized folders. |
 | 35 | [Add LLM-powered Type Coercion (fuzzy_cast)](#35-add-llm-powered-type-coercion-fuzzy_cast) | Done (2026-07-23) | 2.00 (8×1.0÷4) | Sonnet 3.5 | Gemini 1.5 Pro | Universal parser using LLM structured outputs to map messy, unstructured text to strict structs. |
 | 36 | [Add Intent-based Validation (assert_semantic)](#36-add-intent-based-validation-assert_semantic) | Done (2026-07-23) | 2.00 (6×1.0÷3) | Sonnet 3.5 | Gemini 1.5 Pro | Enforces complex, qualitative natural language boundaries effortlessly using zero-shot prompts. |
-| 34 | [Add Semantic Routing (semantic_match)](#34-add-semantic-routing-semantic_match) | Pending | 1.40 (7×1.0÷5) | Sonnet 3.5 | Gemini 1.5 Pro | Natively understands intent, replacing brittle traditional conditional routing and regexes. |
 | 44 | [Add Cross-Language "AI Write Cost" Benchmark](#44-add-cross-language-ai-write-cost-benchmark) | Done (2026-07-23) | 1.20 (6×1.0÷5) | Sonnet 5 | — | Validates Zero's core hallucination-reduction pitch with measured evidence instead of assertion; published to README/docs for adoption/marketing. |
 | 46 | [Close the Benchmark-Found Gaps and Make It a Standing Metric](#46-close-the-benchmark-found-gaps-and-make-it-a-standing-metric) | Pending | 1.17 (7×0.5÷3) | Sonnet 5 | — | Uses improvement #44's measured results as a design input instead of a one-off marketing artifact: fixes the concrete `type_hint` token-overhead finding from Task C, and formalizes re-running the benchmark as a regression gate for changes touching `defun`/`type_hint`, `read_file`, `str_split`, or `test`. |
 | 45 | [Add Zero-to-JavaScript Compilation Target](#45-add-zero-to-javascript-compilation-target) | Pending | 1.14 (8×1.0÷7) | Sonnet 5 | — | Second codegen backend lets the same AI-facing S-expression grammar target the browser, extending Zero's hallucination-reduction pitch from backend-only to full-stack. Scoped to JS logic only — HTML/CSS stay native (see 2026-07-23 conversation). |
-| 37 | [Add Just-In-Time Function Generation (lazy_synthesize)](#37-add-just-in-time-function-generation-lazy_synthesize) | Pending | 0.71 (5×1.0÷7) | Sonnet 3.5 | Gemini 1.5 Pro | Defers boilerplate generation to runtime, allowing AI to focus only on high-level logic. |
 | 41 | [Add Stochastic Control Flow](#41-add-stochastic-control-flow) | ⚠️ below floor | 0.29 (2×1.0÷7) | Sonnet 3.5 | Gemini 1.5 Pro | Introduces fuzzy logic natively; deferred as non-essential for initial MVP. |
 | 38 | [Add Swarm Primitives](#38-add-swarm-primitives) | ⚠️ below floor | 0.25 (2×1.0÷8) | Sonnet 3.5 | Gemini 1.5 Pro | Extremely advanced futurist concept; deferred to maintain MVP scope. |
 | 39 | [Add Teleological Execution](#39-add-teleological-execution) | ⚠️ below floor | 0.25 (2×1.0÷8) | Sonnet 3.5 | Gemini 1.5 Pro | Radical paradigm shift, non-critical enhancement deferred from MVP. |
+| 34 | [Add Semantic Routing (semantic_match)](#34-add-semantic-routing-semantic_match) | ⚠️ below floor | 0.175 (7×0.125÷5) | Sonnet 3.5 | Gemini 1.5 Pro | Natively understands intent, replacing brittle traditional conditional routing and regexes. Re-scored 2026-07-23: same "LLM-backed runtime primitive" theme as shipped #26/#35/#36 (3 prior ships → decay 0.125, was uncounted at 1.0). |
 | 40 | [Add Auto-Mutating Runtime](#40-add-auto-mutating-runtime) | ⚠️ below floor | 0.12 (1×1.0÷8) | Sonnet 3.5 | Gemini 1.5 Pro | Highly experimental runtime evolution; deferred per strict MVP boundaries. |
+| 37 | [Add Just-In-Time Function Generation (lazy_synthesize)](#37-add-just-in-time-function-generation-lazy_synthesize) | ⚠️ below floor | 0.089 (5×0.125÷7) | Sonnet 3.5 | Gemini 1.5 Pro | Defers boilerplate generation to runtime, allowing AI to focus only on high-level logic. Re-scored 2026-07-23: at runtime it would itself call an LLM to synthesize code, placing it in the same "LLM-backed runtime primitive" theme as shipped #26/#35/#36 (3 prior ships → decay 0.125, was uncounted at 1.0). |
 
 ## Details
 
@@ -131,6 +131,7 @@ Pending rows are ranked by a diminishing-returns score:
 * **Impact:** 5/10 (Medium).
 
 ### 34. Add Semantic Routing (semantic_match)
+* **Status Note:** ⚠️ re-scored to 0.175, below ROI floor of 0.5 (2026-07-23). Was carrying decay 1.0 as if it opened a new curve, but it's the same "LLM-backed runtime primitive" theme (call out to local Ollama, parse a structured/semantic response) as three already-shipped items: #26 `llm_generate`, #35 `fuzzy_cast`, #36 `assert_semantic`. Applying the project's own decay precedent (item #5's "three Go AST features shipped" → 0.125) gives decay 0.125, dropping the score from 1.40 to 0.175. Flagged per the below-floor gate rather than closed — needs explicit user confirmation to work, re-scope, or close.
 * **Description:** A control flow structure that routes execution based on the semantic proximity (intent and meaning) of an input string compared to a set of natural language descriptions.
 * **Why:** Natively understands intent. Acknowledges that human language is fuzzy and allows the code to handle it gracefully without exhaustive mapping or complex regexes.
 * **Impact:** 7/10 (High - unlocks intent-based routing).
@@ -146,6 +147,7 @@ Pending rows are ranked by a diminishing-returns score:
 * **Impact:** 6/10 (Medium - powerful for data safety).
 
 ### 37. Add Just-In-Time Function Generation (lazy_synthesize)
+* **Status Note:** ⚠️ re-scored to 0.089, below ROI floor of 0.5 (2026-07-23). Synthesizing an implementation from a docstring at first invocation necessarily calls out to an LLM at runtime, placing it in the same "LLM-backed runtime primitive" theme as three already-shipped items (#26 `llm_generate`, #35 `fuzzy_cast`, #36 `assert_semantic`), same reasoning as improvement #34's re-score. Decay drops from 1.0 to 0.125, score from 0.71 to 0.089. Flagged per the below-floor gate rather than closed — needs explicit user confirmation to work, re-scope, or close.
 * **Description:** A declarative primitive for defining a function using only its signature and a natural language docstring. The implementation is dynamically generated the first time it is invoked.
 * **Why:** AI writing the language doesn't have to waste tokens generating mundane utility functions, delegating implementation to the runtime.
 * **Impact:** 5/10 (Medium - innovative but complex to execute).
