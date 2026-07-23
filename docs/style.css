@@ -2,7 +2,7 @@
    Monochrome-first: all copy stays black/white for maximum readability.
    Gray, very-dark-navy, and very-dark-plum are woven in only as structural
    tone — panel washes, borders, and semantic accents — never as body text.
-   A single matrix-green accent marks the live cursor and status dot. */
+   A single matrix-green accent marks the live status dot. */
 @import url('https://fonts.googleapis.com/css2?family=Courier+Prime:ital,wght@0,400;0,700;1,400;1,700&family=VT323&display=swap');
 
 :root {
@@ -16,7 +16,7 @@
   --border-strong: #ffffff;
   --edge-navy: #4a5aa8;   /* structural accent: nav, sections, focus */
   --edge-plum: #6e4aa3;   /* content accent: code, tables, quotes, hover */
-  --edge-green: #39ff14;  /* matrix accent: cursor blink and live-status dot only */
+  --edge-green: #39ff14;  /* matrix accent: live-status dot only */
   --scanline-color: rgba(255, 255, 255, 0.035);
 }
 
@@ -161,7 +161,6 @@ h2::before {
 /* Blinking cursor for main title */
 h1::after {
   content: '█';
-  color: var(--edge-green);
   animation: blink 1s step-end infinite;
   margin-left: 5px;
 }
