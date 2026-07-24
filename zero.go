@@ -387,13 +387,25 @@ func generateCode(node *Node) (string, string) {
 			argsNode := handlerNode.Children[2]
 
 			typeHints := make(map[string]string)
+			var typeParams []string
 			for j := 3; j < len(handlerNode.Children)-1; j++ {
 				cfgNode := handlerNode.Children[j]
 				if cfgNode.Type == "List" && len(cfgNode.Children) >= 3 && cfgNode.Children[0].Value == "type_hint" {
 					varName := cfgNode.Children[1].Value
 					varType := cfgNode.Children[2].Value
 					typeHints[varName] = varType
+				} else if cfgNode.Type == "List" && len(cfgNode.Children) >= 2 && cfgNode.Children[0].Value == "type_param" {
+					typeParams = append(typeParams, cfgNode.Children[1].Value)
 				}
+			}
+
+			typeParamsStr := ""
+			if len(typeParams) > 0 {
+				var typed []string
+				for _, tp := range typeParams {
+					typed = append(typed, tp+" any")
+				}
+				typeParamsStr = "[" + strings.Join(typed, ", ") + "]"
 			}
 
 			var argsList []string
@@ -417,7 +429,7 @@ func generateCode(node *Node) (string, string) {
 
 			bodyNode := handlerNode.Children[len(handlerNode.Children)-1]
 			bodyCode := generateStatement(bodyNode, "", 0)
-			funcsCode += fmt.Sprintf("//line %s:%d\nfunc %s(%s)%s {\n%s\n}\n\n", handlerNode.Filename, handlerNode.Line, name, argsStr, returnTypeStr, bodyCode)
+			funcsCode += fmt.Sprintf("//line %s:%d\nfunc %s%s(%s)%s {\n%s\n}\n\n", handlerNode.Filename, handlerNode.Line, name, typeParamsStr, argsStr, returnTypeStr, bodyCode)
 			continue
 		}
 
