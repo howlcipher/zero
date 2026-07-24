@@ -290,7 +290,7 @@ Zero supports importing standard Go packages with `import` and composable file m
 
 ### Collections & Mutability
 
-In-memory slices and dictionaries can be mutated directly using `append` (for appending list items), `map_set` (for assigning dictionary key-value pairs), and `map_delete` (for removing dictionary keys).
+In-memory slices and dictionaries can be mutated directly using `append` (for appending list items), `map_set` (for assigning dictionary key-value pairs), and `map_delete` (for removing dictionary keys). Values can be read back out with `map_get` (returns the Go zero value, `""`, on a missing key) and `list_get` (bounds-checked, returns `""` on an out-of-range index rather than panicking).
 
 ```lisp
 (cli_app
@@ -298,6 +298,7 @@ In-memory slices and dictionaries can be mutated directly using `append` (for ap
     (do
       (append my_list "4")
       (print "List:" my_list)
+      (print "Second item:" (list_get my_list 1))
     )
   )
   (let (my_dict (dict ("a" "1") ("b" "2")))
@@ -305,6 +306,7 @@ In-memory slices and dictionaries can be mutated directly using `append` (for ap
       (map_set my_dict "c" "3")
       (map_delete my_dict "a")
       (print "Dict:" my_dict)
+      (print "Value of b:" (map_get my_dict "b"))
     )
   )
 )

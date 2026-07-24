@@ -1,0 +1,14 @@
+(cli_app
+	(let (my_dict (dict ("a" "1") ("b" "2")))
+		(do
+			(print "hit:" (map_get my_dict "a"))
+			(print "miss:" (map_get my_dict "z"))
+		)
+	)
+	(let (my_list (list "10" "20" "30"))
+		(do
+			(print "in-range:" (list_get my_list 1))
+			(print "out-of-range:" (list_get my_list 99))
+		)
+	)
+)

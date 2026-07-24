@@ -885,6 +885,16 @@ func lowerShared(node *Node) (*IRNode, bool) {
 			reportError("map_delete expects (map_delete dict key)", node.Line, node.Column)
 		}
 		return &IRNode{Kind: "map_delete", Kids: node.Children[1:]}, true
+	case "map_get":
+		if len(node.Children) != 3 {
+			reportError("map_get expects (map_get dict key)", node.Line, node.Column)
+		}
+		return &IRNode{Kind: "map_get", Kids: node.Children[1:]}, true
+	case "list_get":
+		if len(node.Children) != 3 {
+			reportError("list_get expects (list_get list idx)", node.Line, node.Column)
+		}
+		return &IRNode{Kind: "list_get", Kids: node.Children[1:]}, true
 	case "print":
 		return &IRNode{Kind: "print", Kids: node.Children[1:]}, true
 	}
@@ -1029,6 +1039,20 @@ func emitGoIR(ir *IRNode, reqVar string, depth int) string {
 		}
 		keyStr := generateStatement(ir.Kids[1], reqVar, depth+1)
 		return fmt.Sprintf("		delete(%s, %s)", dictNode.Value, keyStr)
+	case "map_get":
+		dictNode := ir.Kids[0]
+		if dictNode.Type != "SYMBOL" {
+			reportError("map_get requires a symbol for dict", dictNode.Line, dictNode.Column)
+		}
+		keyStr := generateStatement(ir.Kids[1], reqVar, depth+1)
+		return fmt.Sprintf("%s[%s]", dictNode.Value, keyStr)
+	case "list_get":
+		listNode := ir.Kids[0]
+		if listNode.Type != "SYMBOL" {
+			reportError("list_get requires a symbol for list", listNode.Line, listNode.Column)
+		}
+		idxStr := generateStatement(ir.Kids[1], reqVar, depth+1)
+		return fmt.Sprintf("func() string { _i, _ := strconv.Atoi(fmt.Sprint(%s)); if _i >= 0 && _i < len(%s) { return %s[_i] }; return \"\" }()", idxStr, listNode.Value, listNode.Value)
 	case "print":
 		var args []string
 		for _, kid := range ir.Kids {
@@ -1125,6 +1149,14 @@ func emitJSIR(ir *IRNode, reqVar string, depth int) string {
 		dictNode := ir.Kids[0]
 		keyStr := generateJSStatementRaw(ir.Kids[1], reqVar, depth+1)
 		return fmt.Sprintf("delete %s[%s]", dictNode.Value, keyStr)
+	case "map_get":
+		dictNode := ir.Kids[0]
+		keyStr := generateJSStatementRaw(ir.Kids[1], reqVar, depth+1)
+		return fmt.Sprintf("(%s[%s] ?? \"\")", dictNode.Value, keyStr)
+	case "list_get":
+		listNode := ir.Kids[0]
+		idxStr := generateJSStatementRaw(ir.Kids[1], reqVar, depth+1)
+		return fmt.Sprintf("(%s[%s] ?? \"\")", listNode.Value, idxStr)
 	case "print":
 		var args []string
 		for _, kid := range ir.Kids {
@@ -2321,6 +2353,10 @@ func (interp *Interpreter) evalList(node *Node, env *interpEnv) any {
 		return interp.evalMapSet(node, env)
 	case "map_delete":
 		return interp.evalMapDelete(node, env)
+	case "map_get":
+		return interp.evalMapGet(node, env)
+	case "list_get":
+		return interp.evalListGet(node, env)
 	case "to_int":
 		if len(node.Children) != 2 {
 			interpErr("to_int expects (to_int val)", node)
@@ -2589,6 +2625,53 @@ func (interp *Interpreter) evalMapDelete(node *Node, env *interpEnv) any {
 	key := fmt.Sprint(interp.eval(node.Children[2], env))
 	delete(d, key)
 	return nil
+}
+
+func (interp *Interpreter) evalMapGet(node *Node, env *interpEnv) any {
+	if len(node.Children) != 3 {
+		interpErr("map_get expects (map_get dict key)", node)
+	}
+	dictNode := node.Children[1]
+	if dictNode.Type != "SYMBOL" {
+		interpErr("map_get requires a symbol for dict", dictNode)
+	}
+	current, ok := env.get(dictNode.Value)
+	if !ok {
+		interpErr(fmt.Sprintf("undefined variable: %s", dictNode.Value), dictNode)
+	}
+	d, ok := current.(map[string]any)
+	if !ok {
+		interpErr(fmt.Sprintf("map_get target %q is not a dict", dictNode.Value), dictNode)
+	}
+	key := fmt.Sprint(interp.eval(node.Children[2], env))
+	return d[key]
+}
+
+func (interp *Interpreter) evalListGet(node *Node, env *interpEnv) any {
+	if len(node.Children) != 3 {
+		interpErr("list_get expects (list_get list idx)", node)
+	}
+	listNode := node.Children[1]
+	if listNode.Type != "SYMBOL" {
+		interpErr("list_get requires a symbol for list", listNode)
+	}
+	current, ok := env.get(listNode.Value)
+	if !ok {
+		interpErr(fmt.Sprintf("undefined variable: %s", listNode.Value), listNode)
+	}
+	items, ok := current.([]any)
+	if !ok {
+		interpErr(fmt.Sprintf("list_get target %q is not a list", listNode.Value), listNode)
+	}
+	idxVal := interp.eval(node.Children[2], env)
+	idx, err := strconv.Atoi(strings.TrimSpace(fmt.Sprint(idxVal)))
+	if err != nil {
+		interpErr("list_get index must be a number", node.Children[2])
+	}
+	if idx < 0 || idx >= len(items) {
+		return ""
+	}
+	return items[idx]
 }
 
 func (interp *Interpreter) evalBinop(op string, node *Node, env *interpEnv) any {
