@@ -318,3 +318,28 @@ Now that Zero V1 is complete (a full Turing-complete web server and CLI language
 * **Why:** AI iterates faster with TDD; without this, the AI has to hand-write separate Go test files outside the `.zero` source of truth.
 * **Impact:** 6/10 (Medium-High - unlocks native test-driven workflows).
 * **Done (2026-07-23):** Implemented in `generateCode` (now returns `(mainCode, testCode string)`); `main()` writes `server_test.go` when test blocks are present and removes it otherwise. Verified with `tests/test_feature.zero` — `go build`, `go vet`, and `go test` all pass. Delegated to agy; picked up and closed out after the delegate hit a session limit mid-task (see former journal `2026-07-23_native_unit_test_blocks.md`).
+
+### 34. AI Uncertainty Blocks
+* **Description:** Introduce a specific uncertain wrapper block for generated code. The Go transpiler allows the code to run in a test environment but strictly refuses to compile a production binary until a human reviews and removes the tag.
+* **Why:** LLMs operate on probability and they often know when they are guessing. If the agent generates a complex algorithm but is not highly confident in its logic, it needs a way to flag it for human review.
+* **Impact:** 7/10 (High - improves safety and trustworthiness of generated code).
+
+### 35. Cryptographic Code Provenance
+* **Description:** Automatically hash and sign every single block of generated code. This signature would include the exact prompt context, the LLM version, and the timestamp.
+* **Why:** Supply chain security is a massive concern with AI code generation. If a vulnerability is discovered later, auditors can query the binary to see exactly why the agent wrote that specific function.
+* **Impact:** 6/10 (Medium-High - crucial for enterprise and security audits).
+
+### 36. Semantic Codebase Querying
+* **Description:** Expose a native `query_graph` primitive that allows the AI to ask the compiler architectural questions (e.g., all functions that modify a specific database table) and receive a clean JSON response.
+* **Why:** Instead of making the agent use grep to search through text files, it leverages the fact that the AI is writing structured code, enabling much more accurate codebase exploration.
+* **Impact:** 8/10 (High - drastically improves the agent's ability to navigate and refactor code).
+
+### 37. Native Token and Cost Budgets
+* **Description:** Introduce a `with_budget` primitive. An agent can wrap a subtask in a block that specifies a hard token limit or monetary cap. 
+* **Why:** Agents can easily get stuck in loops and burn through API credits. The runtime needs a way to safely halt execution before costs spiral out of control.
+* **Impact:** 7/10 (High - essential for resource management and preventing runaway costs).
+
+### 38. Test Driven Self Healing
+* **Description:** Introduce an `assert_and_patch` block. If the assertion fails during the Go testing phase, the transpiler captures the memory state, stack trace, and expected output, sending it to the agent to rewrite the function automatically.
+* **Why:** Instead of a normal test failure, this automates the debugging loop behind the scenes before presenting the final application to the user.
+* **Impact:** 8/10 (High - greatly accelerates the development loop and auto-fixes bugs).
