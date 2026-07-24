@@ -1,0 +1,46 @@
+;; Regression fixture for improvement #49 Phase 1 (Direct Neural Bytecode
+;; Synthesis): exercises the node subset the -run interpreter covers, using
+;; only Go-backend-compatible typing (explicit type_hint on defun params,
+;; string-only list/dict elements) so this exact script produces
+;; byte-identical stdout via both execution paths:
+;;   ./zero -run tests/test_interpret_basic.zero
+;;   ./zero tests/test_interpret_basic.zero && go run server.go
+(cli_app
+  (defun add (a b)
+    (type_hint a "int")
+    (type_hint b "int")
+    (type_hint return "int")
+    (return (+ a b)))
+
+  (defun classify (n)
+    (type_hint n "int")
+    (if (> n 0)
+      (return "positive")
+      (return "not positive")))
+
+  (print "sum:" (call add 2 3))
+  (print "classify:" (call classify (call add 2 3)))
+
+  (let (count 0)
+    (do
+      (while (and (< count 3) (>= count 0))
+        (do
+          (print "loop:" count)
+          (set count (+ count 1))))
+      (print "final count:" count)))
+
+  (let (items (list "a" "b" "c"))
+    (do
+      (append items "d")
+      (for x items (print "item:" x))))
+
+  (let (d (dict ("k1" "v1")))
+    (do
+      (map_set d "k2" "v2")
+      (map_delete d "k1")
+      (print "dict:" d)))
+
+  (print "split:" (str_split "a,b,c" ","))
+  (print "join:" (str_join (str_split "x,y,z" ",") "-"))
+  (print "and/or:" (and (> 5 1) (< 5 10)) (or (> 1 5) (< 1 5)))
+)

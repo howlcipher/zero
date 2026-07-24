@@ -7,6 +7,8 @@ app.zero
 zero
 servercheck
 *.db
+telemetry.jsonl
+crash.json
 
 # Go modules
 vendor/

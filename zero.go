@@ -8,8 +8,10 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
+	"time"
 	"unicode"
 )
 
@@ -2036,6 +2038,7 @@ func generateJSStatementRaw(node *Node, reqVar string, depth int) string {
 
 func main() {
 	outDir := flag.String("o", "", "output directory")
+	runMode := flag.Bool("run", false, "interpret and execute a cli_app script directly (Phase 1 of improvement #49: no Go/JS text generated, no go build/go run invoked)")
 	flag.Parse()
 
 	if flag.NArg() < 1 {
@@ -2062,6 +2065,10 @@ func main() {
 	ast = applyWithContext(ast, nil)
 
 	ast = applyWithContext(ast, nil)
+
+	if *runMode {
+		os.Exit(Interpret(ast, flag.Args()[1:]))
+	}
 
 	if ast != nil && ast.Type == "List" && len(ast.Children) > 0 && ast.Children[0].Type == "SYMBOL" && ast.Children[0].Value == "web_app" {
 		jsCode, testCode := generateJSCode(ast)
@@ -2101,4 +2108,618 @@ func main() {
 			os.Remove(serverTestFile)
 		}
 	}
+}
+
+// interpreter.go implements Phase 1 of improvement #49 (Direct Neural
+// Bytecode Synthesis): a tree-walking interpreter that executes a cli_app
+// AST directly, with no Go/JS text ever generated and no go build/go run/
+// node subprocess ever invoked. See docs/direct_execution_design.md for the
+// full design, covered node subset, and documented deviations from the Go
+// backend.
+
+// returnSignal unwinds a (return val) out of arbitrarily nested if/while/do
+// blocks via panic/recover, mirroring Go's own return semantics.
+type returnSignal struct{ value any }
+
+type interpEnv struct {
+	vars   map[string]any
+	parent *interpEnv
+}
+
+func newInterpEnv(parent *interpEnv) *interpEnv {
+	return &interpEnv{vars: make(map[string]any), parent: parent}
+}
+
+func (e *interpEnv) get(name string) (any, bool) {
+	for env := e; env != nil; env = env.parent {
+		if v, ok := env.vars[name]; ok {
+			return v, true
+		}
+	}
+	return nil, false
+}
+
+func (e *interpEnv) set(name string, val any) bool {
+	for env := e; env != nil; env = env.parent {
+		if _, ok := env.vars[name]; ok {
+			env.vars[name] = val
+			return true
+		}
+	}
+	return false
+}
+
+type interpFunc struct {
+	params []string
+	body   *Node
+}
+
+// Interpreter holds the global function table for a single -run invocation.
+// defun bodies have no closure over caller scope, matching the Go backend's
+// model where defun compiles to an independent top-level function.
+type Interpreter struct {
+	funcs map[string]*interpFunc
+	args  []string
+}
+
+func interpErr(reason string, node *Node) {
+	line, col := 0, 0
+	if node != nil {
+		line, col = node.Line, node.Column
+	}
+	reportError(reason, line, col)
+}
+
+// Interpret executes a cli_app AST directly and returns a process exit code.
+// http_server/web_app roots are rejected with a clear error — Phase 1 is
+// cli_app only, per docs/direct_execution_design.md.
+func Interpret(ast *Node, args []string) int {
+	if ast == nil || ast.Type != "List" || len(ast.Children) == 0 || ast.Children[0].Type != "SYMBOL" {
+		interpErr("Expected cli_app as root symbol", ast)
+	}
+	root := ast.Children[0].Value
+	if root != "cli_app" {
+		interpErr(fmt.Sprintf("-run only supports cli_app in Phase 1 (see docs/direct_execution_design.md); got %q", root), ast.Children[0])
+	}
+
+	interp := &Interpreter{funcs: make(map[string]*interpFunc), args: args}
+	globalEnv := newInterpEnv(nil)
+
+	for _, child := range ast.Children[1:] {
+		if isDefun(child) {
+			interp.registerDefun(child)
+		}
+	}
+
+	func() {
+		defer func() {
+			if r := recover(); r != nil {
+				if _, ok := r.(returnSignal); ok {
+					return
+				}
+				panic(r)
+			}
+		}()
+		for _, child := range ast.Children[1:] {
+			if isDefun(child) {
+				continue
+			}
+			interp.eval(child, globalEnv)
+		}
+	}()
+	return 0
+}
+
+func isDefun(node *Node) bool {
+	return node.Type == "List" && len(node.Children) > 0 &&
+		node.Children[0].Type == "SYMBOL" && node.Children[0].Value == "defun"
+}
+
+func (interp *Interpreter) registerDefun(node *Node) {
+	if len(node.Children) < 4 {
+		interpErr("defun expects (defun name (args) body)", node)
+	}
+	name := node.Children[1].Value
+	argsNode := node.Children[2]
+	var params []string
+	for _, arg := range argsNode.Children {
+		if arg.Type == "List" && len(arg.Children) >= 1 {
+			params = append(params, arg.Children[0].Value)
+		} else {
+			params = append(params, arg.Value)
+		}
+	}
+	body := node.Children[len(node.Children)-1]
+	interp.funcs[name] = &interpFunc{params: params, body: body}
+}
+
+func (interp *Interpreter) eval(node *Node, env *interpEnv) any {
+	switch node.Type {
+	case "STRING":
+		return node.Value
+	case "INT":
+		v, err := strconv.ParseInt(node.Value, 10, 64)
+		if err != nil {
+			interpErr(fmt.Sprintf("invalid integer literal: %s", node.Value), node)
+		}
+		return v
+	case "SYMBOL":
+		if v, ok := env.get(node.Value); ok {
+			return v
+		}
+		interpErr(fmt.Sprintf("undefined variable: %s", node.Value), node)
+	case "List":
+		return interp.evalList(node, env)
+	}
+	interpErr(fmt.Sprintf("cannot evaluate node of type %s", node.Type), node)
+	return nil
+}
+
+func (interp *Interpreter) evalList(node *Node, env *interpEnv) any {
+	if len(node.Children) == 0 {
+		interpErr("empty expression", node)
+	}
+	head := node.Children[0].Value
+
+	if binOpKinds[head] {
+		return interp.evalBinop(head, node, env)
+	}
+
+	switch head {
+	case "intent":
+		return nil
+	case "let":
+		return interp.evalLet(node, env)
+	case "set":
+		return interp.evalSet(node, env)
+	case "if":
+		return interp.evalIf(node, env)
+	case "while":
+		return interp.evalWhile(node, env)
+	case "for":
+		return interp.evalFor(node, env)
+	case "do":
+		var result any
+		for _, kid := range node.Children[1:] {
+			result = interp.eval(kid, env)
+		}
+		return result
+	case "print":
+		var args []any
+		for _, kid := range node.Children[1:] {
+			args = append(args, interp.eval(kid, env))
+		}
+		fmt.Println(args...)
+		return nil
+	case "return":
+		if len(node.Children) != 2 {
+			interpErr("return expects (return val)", node)
+		}
+		panic(returnSignal{value: interp.eval(node.Children[1], env)})
+	case "call":
+		return interp.evalCall(node, env)
+	case "list":
+		var items []any
+		for _, kid := range node.Children[1:] {
+			items = append(items, interp.eval(kid, env))
+		}
+		return items
+	case "dict":
+		d := make(map[string]any)
+		for _, kid := range node.Children[1:] {
+			if kid.Type != "List" || len(kid.Children) != 2 {
+				interpErr("dict expects (k v) pairs", kid)
+			}
+			k := fmt.Sprint(interp.eval(kid.Children[0], env))
+			v := interp.eval(kid.Children[1], env)
+			d[k] = v
+		}
+		return d
+	case "append":
+		return interp.evalAppend(node, env)
+	case "map_set":
+		return interp.evalMapSet(node, env)
+	case "map_delete":
+		return interp.evalMapDelete(node, env)
+	case "to_int":
+		if len(node.Children) != 2 {
+			interpErr("to_int expects (to_int val)", node)
+		}
+		v, _ := strconv.ParseInt(strings.TrimSpace(fmt.Sprint(interp.eval(node.Children[1], env))), 10, 64)
+		return v
+	case "to_float":
+		if len(node.Children) != 2 {
+			interpErr("to_float expects (to_float val)", node)
+		}
+		v, _ := strconv.ParseFloat(strings.TrimSpace(fmt.Sprint(interp.eval(node.Children[1], env))), 64)
+		return v
+	case "to_string":
+		if len(node.Children) != 2 {
+			interpErr("to_string expects (to_string val)", node)
+		}
+		return fmt.Sprint(interp.eval(node.Children[1], env))
+	case "bytes_to_string":
+		if len(node.Children) != 2 {
+			interpErr("bytes_to_string expects (bytes_to_string val)", node)
+		}
+		val := interp.eval(node.Children[1], env)
+		if b, ok := val.([]byte); ok {
+			return string(b)
+		}
+		return fmt.Sprint(val)
+	case "str_split":
+		if len(node.Children) != 3 {
+			interpErr("str_split expects (str_split s sep)", node)
+		}
+		s := fmt.Sprint(interp.eval(node.Children[1], env))
+		sep := fmt.Sprint(interp.eval(node.Children[2], env))
+		parts := strings.Split(s, sep)
+		items := make([]any, len(parts))
+		for i, p := range parts {
+			items[i] = p
+		}
+		return items
+	case "str_join":
+		if len(node.Children) != 3 {
+			interpErr("str_join expects (str_join list sep)", node)
+		}
+		listVal := interp.eval(node.Children[1], env)
+		sep := fmt.Sprint(interp.eval(node.Children[2], env))
+		items, ok := listVal.([]any)
+		if !ok {
+			interpErr("str_join expects a list", node.Children[1])
+		}
+		strs := make([]string, len(items))
+		for i, it := range items {
+			strs[i] = fmt.Sprint(it)
+		}
+		return strings.Join(strs, sep)
+	case "regex_match":
+		if len(node.Children) != 3 {
+			interpErr("regex_match expects (regex_match pattern s)", node)
+		}
+		pat := fmt.Sprint(interp.eval(node.Children[1], env))
+		s := fmt.Sprint(interp.eval(node.Children[2], env))
+		matched, err := regexp.MatchString(pat, s)
+		if err != nil {
+			interpErr(fmt.Sprintf("invalid regex: %v", err), node)
+		}
+		return matched
+	case "cli_args":
+		if len(node.Children) == 1 {
+			return sliceToAny(interp.args)
+		} else if len(node.Children) == 2 {
+			idx, err := toInt(interp.eval(node.Children[1], env))
+			if err != nil {
+				interpErr("cli_args index must be a number", node)
+			}
+			if int(idx) >= 0 && int(idx) < len(interp.args) {
+				return interp.args[idx]
+			}
+			return ""
+		}
+		interpErr("cli_args expects (cli_args) or (cli_args index)", node)
+	case "sleep":
+		if len(node.Children) != 2 {
+			interpErr("sleep expects (sleep ms)", node)
+		}
+		ms, err := toInt(interp.eval(node.Children[1], env))
+		if err != nil {
+			interpErr("sleep expects a numeric argument", node)
+		}
+		time.Sleep(time.Duration(ms) * time.Millisecond)
+		return nil
+	case "env":
+		if len(node.Children) != 2 {
+			interpErr("env expects (env \"KEY\")", node)
+		}
+		key := fmt.Sprint(interp.eval(node.Children[1], env))
+		return os.Getenv(key)
+	}
+
+	interpErr(fmt.Sprintf("%q is not supported under -run in Phase 1 (see docs/direct_execution_design.md)", head), node.Children[0])
+	return nil
+}
+
+func (interp *Interpreter) evalLet(node *Node, env *interpEnv) any {
+	if len(node.Children) != 3 {
+		interpErr("let expects (let (var val) body) — wrap multiple body statements in (do ...)", node)
+	}
+	binding := node.Children[1]
+	if binding.Type != "List" || len(binding.Children) != 2 {
+		interpErr("let binding expects (var val)", binding)
+	}
+	varName := binding.Children[0].Value
+	val := interp.eval(binding.Children[1], env)
+	childEnv := newInterpEnv(env)
+	childEnv.vars[varName] = val
+	return interp.eval(node.Children[2], childEnv)
+}
+
+func (interp *Interpreter) evalSet(node *Node, env *interpEnv) any {
+	if len(node.Children) != 3 {
+		interpErr("set expects (set var val)", node)
+	}
+	varName := node.Children[1].Value
+	val := interp.eval(node.Children[2], env)
+	if !env.set(varName, val) {
+		interpErr(fmt.Sprintf("undefined variable: %s", varName), node.Children[1])
+	}
+	return nil
+}
+
+func (interp *Interpreter) evalIf(node *Node, env *interpEnv) any {
+	if len(node.Children) != 3 && len(node.Children) != 4 {
+		interpErr("if expects (if cond then [else])", node)
+	}
+	if toBool(interp.eval(node.Children[1], env), node.Children[1]) {
+		return interp.eval(node.Children[2], env)
+	} else if len(node.Children) == 4 {
+		return interp.eval(node.Children[3], env)
+	}
+	return nil
+}
+
+func (interp *Interpreter) evalWhile(node *Node, env *interpEnv) any {
+	if len(node.Children) != 3 {
+		interpErr("while expects (while cond body)", node)
+	}
+	for toBool(interp.eval(node.Children[1], env), node.Children[1]) {
+		interp.eval(node.Children[2], env)
+	}
+	return nil
+}
+
+func (interp *Interpreter) evalFor(node *Node, env *interpEnv) any {
+	if len(node.Children) != 4 {
+		interpErr("for expects (for item list body)", node)
+	}
+	itemName := node.Children[1].Value
+	listVal := interp.eval(node.Children[2], env)
+	items, ok := listVal.([]any)
+	if !ok {
+		interpErr("for requires a list value to iterate", node.Children[2])
+	}
+	for _, item := range items {
+		childEnv := newInterpEnv(env)
+		childEnv.vars[itemName] = item
+		interp.eval(node.Children[3], childEnv)
+	}
+	return nil
+}
+
+func (interp *Interpreter) evalCall(node *Node, env *interpEnv) any {
+	if len(node.Children) < 2 {
+		interpErr("call expects (call func args...)", node)
+	}
+	funcName := node.Children[1].Value
+	fn, ok := interp.funcs[funcName]
+	if !ok {
+		interpErr(fmt.Sprintf("%q is not a defined function (only user defun functions are callable under -run in Phase 1)", funcName), node.Children[1])
+	}
+	var argVals []any
+	for _, argNode := range node.Children[2:] {
+		argVals = append(argVals, interp.eval(argNode, env))
+	}
+	if len(argVals) != len(fn.params) {
+		interpErr(fmt.Sprintf("%s expects %d argument(s), got %d", funcName, len(fn.params), len(argVals)), node)
+	}
+	callEnv := newInterpEnv(nil)
+	for i, p := range fn.params {
+		callEnv.vars[p] = argVals[i]
+	}
+	var result any
+	func() {
+		defer func() {
+			if r := recover(); r != nil {
+				if rs, ok := r.(returnSignal); ok {
+					result = rs.value
+					return
+				}
+				panic(r)
+			}
+		}()
+		interp.eval(fn.body, callEnv)
+	}()
+	return result
+}
+
+func (interp *Interpreter) evalAppend(node *Node, env *interpEnv) any {
+	if len(node.Children) != 3 {
+		interpErr("append expects (append list item)", node)
+	}
+	listNode := node.Children[1]
+	if listNode.Type != "SYMBOL" {
+		interpErr("append requires a symbol for list", listNode)
+	}
+	current, ok := env.get(listNode.Value)
+	if !ok {
+		interpErr(fmt.Sprintf("undefined variable: %s", listNode.Value), listNode)
+	}
+	items, ok := current.([]any)
+	if !ok {
+		interpErr(fmt.Sprintf("append target %q is not a list", listNode.Value), listNode)
+	}
+	item := interp.eval(node.Children[2], env)
+	newItems := append(append([]any{}, items...), item)
+	if !env.set(listNode.Value, newItems) {
+		interpErr(fmt.Sprintf("undefined variable: %s", listNode.Value), listNode)
+	}
+	return nil
+}
+
+func (interp *Interpreter) evalMapSet(node *Node, env *interpEnv) any {
+	if len(node.Children) != 4 {
+		interpErr("map_set expects (map_set dict key val)", node)
+	}
+	dictNode := node.Children[1]
+	if dictNode.Type != "SYMBOL" {
+		interpErr("map_set requires a symbol for dict", dictNode)
+	}
+	current, ok := env.get(dictNode.Value)
+	if !ok {
+		interpErr(fmt.Sprintf("undefined variable: %s", dictNode.Value), dictNode)
+	}
+	d, ok := current.(map[string]any)
+	if !ok {
+		interpErr(fmt.Sprintf("map_set target %q is not a dict", dictNode.Value), dictNode)
+	}
+	key := fmt.Sprint(interp.eval(node.Children[2], env))
+	val := interp.eval(node.Children[3], env)
+	d[key] = val
+	return nil
+}
+
+func (interp *Interpreter) evalMapDelete(node *Node, env *interpEnv) any {
+	if len(node.Children) != 3 {
+		interpErr("map_delete expects (map_delete dict key)", node)
+	}
+	dictNode := node.Children[1]
+	if dictNode.Type != "SYMBOL" {
+		interpErr("map_delete requires a symbol for dict", dictNode)
+	}
+	current, ok := env.get(dictNode.Value)
+	if !ok {
+		interpErr(fmt.Sprintf("undefined variable: %s", dictNode.Value), dictNode)
+	}
+	d, ok := current.(map[string]any)
+	if !ok {
+		interpErr(fmt.Sprintf("map_delete target %q is not a dict", dictNode.Value), dictNode)
+	}
+	key := fmt.Sprint(interp.eval(node.Children[2], env))
+	delete(d, key)
+	return nil
+}
+
+func (interp *Interpreter) evalBinop(op string, node *Node, env *interpEnv) any {
+	if len(node.Children) != 3 {
+		interpErr(fmt.Sprintf("%s expects 2 arguments", op), node)
+	}
+	a := interp.eval(node.Children[1], env)
+	b := interp.eval(node.Children[2], env)
+	switch op {
+	case "and":
+		return toBool(a, node.Children[1]) && toBool(b, node.Children[2])
+	case "or":
+		return toBool(a, node.Children[1]) || toBool(b, node.Children[2])
+	case "==", "=":
+		return valuesEqual(a, b)
+	case "!=":
+		return !valuesEqual(a, b)
+	case "+":
+		if as, ok := a.(string); ok {
+			if bs, ok2 := b.(string); ok2 {
+				return as + bs
+			}
+		}
+		return numericBinop(op, a, b, node)
+	default: // - * / < > <= >=
+		return numericBinop(op, a, b, node)
+	}
+}
+
+func numericBinop(op string, a, b any, node *Node) any {
+	ai, aIsInt := a.(int64)
+	bi, bIsInt := b.(int64)
+	if aIsInt && bIsInt {
+		switch op {
+		case "+":
+			return ai + bi
+		case "-":
+			return ai - bi
+		case "*":
+			return ai * bi
+		case "/":
+			if bi == 0 {
+				interpErr("division by zero", node)
+			}
+			return ai / bi
+		case "<":
+			return ai < bi
+		case ">":
+			return ai > bi
+		case "<=":
+			return ai <= bi
+		case ">=":
+			return ai >= bi
+		}
+	}
+
+	af, aOk := toFloat(a)
+	bf, bOk := toFloat(b)
+	if !aOk || !bOk {
+		interpErr(fmt.Sprintf("%s requires numeric operands, got %T and %T", op, a, b), node)
+	}
+	switch op {
+	case "+":
+		return af + bf
+	case "-":
+		return af - bf
+	case "*":
+		return af * bf
+	case "/":
+		if bf == 0 {
+			interpErr("division by zero", node)
+		}
+		return af / bf
+	case "<":
+		return af < bf
+	case ">":
+		return af > bf
+	case "<=":
+		return af <= bf
+	case ">=":
+		return af >= bf
+	}
+	return nil
+}
+
+func toFloat(v any) (float64, bool) {
+	switch t := v.(type) {
+	case int64:
+		return float64(t), true
+	case float64:
+		return t, true
+	}
+	return 0, false
+}
+
+func toInt(v any) (int64, error) {
+	switch t := v.(type) {
+	case int64:
+		return t, nil
+	case float64:
+		return int64(t), nil
+	case string:
+		return strconv.ParseInt(t, 10, 64)
+	}
+	return 0, fmt.Errorf("cannot convert %T to int", v)
+}
+
+func toBool(v any, node *Node) bool {
+	if b, ok := v.(bool); ok {
+		return b
+	}
+	interpErr(fmt.Sprintf("expected boolean, got %T", v), node)
+	return false
+}
+
+func valuesEqual(a, b any) bool {
+	switch a.(type) {
+	case []any, map[string]any:
+		return false
+	}
+	switch b.(type) {
+	case []any, map[string]any:
+		return false
+	}
+	return a == b
+}
+
+func sliceToAny(strs []string) []any {
+	out := make([]any, len(strs))
+	for i, s := range strs {
+		out[i] = s
+	}
+	return out
 }
