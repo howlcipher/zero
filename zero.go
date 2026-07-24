@@ -884,6 +884,17 @@ func generateStatementRaw(node *Node, reqVar string, depth int) string {
 			args = append(args, generateStatement(node.Children[j], reqVar, depth+1))
 		}
 		return fmt.Sprintf("		fmt.Println(%s)", strings.Join(args, ", "))
+	} else if head == "trace" {
+		if len(node.Children) != 2 {
+			reportError("trace expects (trace var)", node.Line, node.Column)
+		}
+		varStr := generateStatement(node.Children[1], reqVar, depth+1)
+		fileLine := fmt.Sprintf("[%s:%d]", node.Filename, node.Line)
+		varName := node.Children[1].Value
+		if node.Children[1].Type == "List" {
+			varName = "expression"
+		}
+		return fmt.Sprintf("		fmt.Println(%q, %q, %s)", fileLine, varName+" =", varStr)
 	} else if head == "db_connect" {
 		if len(node.Children) != 4 {
 			reportError("db_connect expects (db_connect var driver dsn)", node.Line, node.Column)
