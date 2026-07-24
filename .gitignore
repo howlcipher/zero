@@ -6,6 +6,7 @@ server_test.go
 app.zero
 zero
 servercheck
+*.db
 
 # Go modules
 vendor/
