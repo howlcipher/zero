@@ -508,7 +508,14 @@ func generateCode(node *Node) (string, string) {
 
 			bodyNode := handlerNode.Children[len(handlerNode.Children)-1]
 			bodyCode := generateStatement(bodyNode, "", 0)
-			funcsCode += fmt.Sprintf("//line %s:%d\nfunc %s%s(%s)%s {\n%s\n}\n\n", handlerNode.Filename, handlerNode.Line, name, typeParamsStr, argsStr, returnTypeStr, bodyCode)
+			traceArgs := "map[string]any{"
+			for _, arg := range argsList {
+				argName := strings.Split(arg, " ")[0]
+				traceArgs += fmt.Sprintf("%q: %s, ", argName, argName)
+			}
+			traceArgs += "}"
+			traceInject := fmt.Sprintf("\tdefer observer.Trace(%q, %s)()\n", name, traceArgs)
+			funcsCode += fmt.Sprintf("//line %s:%d\nfunc %s%s(%s)%s {\n%s%s\n}\n\n", handlerNode.Filename, handlerNode.Line, name, typeParamsStr, argsStr, returnTypeStr, traceInject, bodyCode)
 			continue
 		}
 
@@ -527,10 +534,11 @@ func generateCode(node *Node) (string, string) {
 			reqVar := reqNodeList.Children[0].Value
 			bodyNode := handlerNode.Children[2].Children[2]
 			bodyCode := generateStatement(bodyNode, reqVar, 0)
+			traceInject := fmt.Sprintf("\t\tdefer observer.Trace(%q, map[string]any{%q: %s.URL.Path})()\n", "route:"+pathNode.Value, reqVar, reqVar)
 			routesCode += fmt.Sprintf(`	http.HandleFunc(%q, func(w http.ResponseWriter, %s *http.Request) {
-%s
+%s%s
 	})
-`, pathNode.Value, reqVar, bodyCode)
+`, pathNode.Value, reqVar, traceInject, bodyCode)
 			continue
 		}
 
@@ -575,11 +583,12 @@ func generateCode(node *Node) (string, string) {
 
 				replaceNext(clonedMwBody, clonedRouteBody)
 				combinedCode := generateStatement(clonedMwBody, mwReqVar, 0)
+				traceInject := fmt.Sprintf("\t\tdefer observer.Trace(%q, map[string]any{%q: %s.URL.Path})()\n", "middleware_route:"+pathNode.Value, mwReqVar, mwReqVar)
 
 				routesCode += fmt.Sprintf(`	http.HandleFunc(%q, func(w http.ResponseWriter, %s *http.Request) {
-%s
+%s%s
 	})
-`, pathNode.Value, mwReqVar, combinedCode)
+`, pathNode.Value, mwReqVar, traceInject, combinedCode)
 			}
 			continue
 		}
@@ -610,6 +619,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"zero/observer"
 `
 	for _, imp := range extraImports {
 		code += fmt.Sprintf("\t%q\n", imp)
@@ -646,6 +656,7 @@ import (
 	var _ = time.Sleep
 	var _ = strconv.Atoi
 	var _ = fmt.Println
+	var _ = observer.Trace
 `
 	if isCliApp {
 		code += cliCode
@@ -678,6 +689,7 @@ import (
 	"strings"
 	"testing"
 	"time"
+	"zero/observer"
 `
 		for _, imp := range extraImports {
 			parts := strings.Split(imp, "/")
@@ -700,6 +712,7 @@ var _ = strings.Split
 var _ = time.Sleep
 var _ = strconv.Atoi
 var _ = fmt.Println
+var _ = observer.Trace
 
 ` + testCode
 		testCode = fullTestCode
@@ -966,7 +979,8 @@ func generateStatementRaw(node *Node, reqVar string, depth int) string {
 			reportError("spawn lambda expects no arguments ()", argsNode.Line, argsNode.Column)
 		}
 		bodyCode := generateStatement(lambdaNode.Children[2], reqVar, depth+1)
-		return fmt.Sprintf("		go func() {\n%s\n		}()", bodyCode)
+		traceInject := fmt.Sprintf("\t\tdefer observer.Trace(%q, map[string]any{})()\n", "spawn_lambda")
+		return fmt.Sprintf("		go func() {\n%s%s\n		}()", traceInject, bodyCode)
 	} else if head == "if" {
 		if len(node.Children) != 3 && len(node.Children) != 4 {
 			reportError("if expects (if cond then) or (if cond then else)", node.Line, node.Column)
