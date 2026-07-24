@@ -40,3 +40,49 @@ func TestOutputDirectoryFlag(t *testing.T) {
 		t.Errorf("Expected server.go to be created in %s, but it was not", outDir)
 	}
 }
+
+func TestCrashStateSerialization(t *testing.T) {
+	cmd := exec.Command("go", "build", "-o", "zero", "zero.go")
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("Failed to build zero binary: %v", err)
+	}
+	defer os.Remove("zero")
+
+	outDir, err := os.MkdirTemp("", "zero-crash-test-*")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(outDir)
+
+	inputFile := filepath.Join(outDir, "panic.zero")
+	if err := os.WriteFile(inputFile, []byte(`(cli_app (call panic "test crash dump"))`), 0644); err != nil {
+		t.Fatalf("Failed to write input file: %v", err)
+	}
+
+	cmd = exec.Command("./zero", "-o", outDir, inputFile)
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("Failed to transpilation: %v", err)
+	}
+
+	serverFile := filepath.Join(outDir, "server.go")
+	appBin := filepath.Join(outDir, "app")
+	cmd = exec.Command("go", "build", "-o", appBin, serverFile)
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("Failed to build generated server.go: %v", err)
+	}
+
+	cmd = exec.Command(appBin)
+	cmd.Dir = outDir
+	_ = cmd.Run() // expected to exit with non-zero code
+
+	crashFile := filepath.Join(outDir, "crash.json")
+	data, err := os.ReadFile(crashFile)
+	if err != nil {
+		t.Fatalf("Failed to read crash.json: %v", err)
+	}
+
+	if len(data) == 0 {
+		t.Fatalf("crash.json is empty")
+	}
+}
+

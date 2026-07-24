@@ -16,9 +16,18 @@ Zero combines the **predictability and simplicity of S-expressions** (for the AI
 
 See [`docs/language_write_cost_benchmark.md`](docs/language_write_cost_benchmark.md) — a measured (not estimated) comparison of LLM write-time and token cost across all six languages, using the same fixed set of task prompts, with every program actually compiled and run. Zero wins clearly on its designed niche (HTTP/JSON handlers) and is mid-pack on tokens overall; the benchmark also reports where it currently loses and the two transpiler bugs discovered while building it.
 
-## Project Roadmap & Future Home
+## Project Roadmap & The End Goal
 
 Zero has evolved from a local script into a standalone transpiler toolchain. To truly achieve its goal of being an AI-first language, **Zero is slated to be moved into its own independent repository**. 
+
+Beyond simple language mechanics, the ultimate **End Goal** of Zero is to completely bypass human-readable code. If AI is writing the code, we no longer need text-based syntaxes (like Go or JS transpilers) designed for human eyes. 
+
+The roadmap to this future includes:
+- **Direct Neural Bytecode Synthesis:** Outputting raw machine instructions or Neural Intermediate Representation (NIR) directly.
+- **Latent Execution:** Processing inputs and outputs directly through the model's neural pathways, skipping compilation entirely.
+- **Ephemeral Neural Circuits:** Generating highly specialized micro-models for a single task that delete themselves after execution.
+- **Agentic Observability:** Replacing traditional debugging with observer AI models that monitor system behavior, analyze full context traces, and trigger self-healing workflows autonomously.
+- **Leveraging Agent Skills:** Utilizing autonomous agent skills and the unique reasoning capabilities of AI (which often exceed human understanding) to act as the verification and observability layer, ensuring safety without needing to read code.
 
 This will allow:
 - Seamless installation by AI agents anywhere via `curl` and GitHub Releases.

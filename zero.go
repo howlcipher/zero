@@ -291,6 +291,8 @@ func generateCode(node *Node) (string, string) {
 		"os":            true,
 		"os/exec":       true,
 		"regexp":        true,
+		"runtime":       true,
+		"runtime/debug": true,
 		"strconv":       true,
 		"strings":       true,
 		"time":          true,
@@ -603,6 +605,8 @@ import (
 	"os"
 	"os/exec"
 	"regexp"
+	"runtime"
+	"runtime/debug"
 	"strconv"
 	"strings"
 	"time"
@@ -614,6 +618,22 @@ import (
 `
 	code += funcsCode
 	code += `func main() {
+	defer func() {
+		if r := recover(); r != nil {
+			crashData := struct {
+				Error string
+				Stack string
+			}{
+				Error: fmt.Sprintf("%v", r),
+				Stack: string(debug.Stack()),
+			}
+			dump, _ := json.Marshal(crashData)
+			_ = os.WriteFile("crash.json", dump, 0644)
+			os.Exit(1)
+		}
+	}()
+	var _ = runtime.GOOS
+	var _ = debug.Stack
 	var _ = sql.Open
 	var _ = os.Getenv
 	var _ = json.Marshal
