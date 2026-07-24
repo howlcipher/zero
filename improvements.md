@@ -53,13 +53,20 @@ Pending rows are ranked by a diminishing-returns score:
 | 18 | [Declarative Schema Migrations](#18-declarative-schema-migrations) | Done (2026-07-23) | 1.0 (5×1.0÷5) | Sonnet 3.5 | Gemini 1.5 Pro | Merged into the main table 2026-07-23 groom pass — was previously only tracked in the legacy V2 table below, invisible to a scan of this table alone. `(schema "users" (column "id" "int"))` would let the transpiler auto-generate `CREATE TABLE IF NOT EXISTS`, building on the already-shipped `db_connect`/`sql_query` (#4) and `struct` (#7) primitives. |
 | 48 | [Add CLI flag for output directory](#48-add-cli-flag-for-output-directory) | Done | 1.0 (2×1.0÷2) | Sonnet 5 | Gemini 1.5 Pro | The transpiler always outputs `server.go` and `server_test.go` to the current working directory. Adding an output directory flag (e.g. `-o`) would allow keeping the workspace clean. |
 | 43 | [Support for Go Generics](#43-support-for-go-generics) | Done (2026-07-23) | 0.8 (4×1.0÷5) | Sonnet 3.5 | Gemini 1.5 Pro | Merged into the main table 2026-07-23 groom pass — was previously only tracked in the legacy V2 table below, invisible to a scan of this table alone. `(type_param T)` syntax in `defun` would enable generating generic Go functions. |
+| 53 | [Decouple AST from Go Codegen (IR Abstraction)](#53-decouple-ast-from-go-codegen-ir-abstraction) | Pending | 1.33 (8×1.0÷6) | Sonnet 3.5 | Gemini 1.5 Pro | Requisite for pure binary generation. High effort refactor. |
+| 49 | [Direct Neural Bytecode Synthesis](#49-direct-neural-bytecode-synthesis) | Pending | 1.00 (8×1.0÷8) | Sonnet 3.5 | Gemini 1.5 Pro | Monumental shift; massive effort but maximum value. |
+| 59 | [Auto-Patching Loop](#59-auto-patching-loop) | Pending | 0.66 (8×0.5÷6) | Sonnet 3.5 | Gemini 1.5 Pro | Closes the loop on #58. High effort integration. Decay 0.5 from 1 shipped self-healing item (#58). |
+| 54 | [WebAssembly (Wasm) Backend Prototype](#54-webassembly-wasm-backend-prototype) | Pending | 0.50 (7×0.5÷7) | Sonnet 3.5 | Gemini 1.5 Pro | First step after #53. Decay 0.5 from 1 shipped backend (#45). |
+| 52 | [Automated Counterfactual Debugging](#52-automated-counterfactual-debugging) | Pending | 0.50 (8×0.5÷8) | Sonnet 3.5 | Gemini 1.5 Pro | The self-healing capstone. Decay 0.5 from 1 shipped self-healing item (#58). |
 | 41 | [Add Stochastic Control Flow](#41-add-stochastic-control-flow) | ⚠️ below floor | 0.29 (2×1.0÷7) | Sonnet 3.5 | Gemini 1.5 Pro | Introduces fuzzy logic natively; deferred as non-essential for initial MVP. |
 | 38 | [Add Swarm Primitives](#38-add-swarm-primitives) | ⚠️ below floor | 0.25 (2×1.0÷8) | Sonnet 3.5 | Gemini 1.5 Pro | Extremely advanced futurist concept; deferred to maintain MVP scope. |
 | 39 | [Add Teleological Execution](#39-add-teleological-execution) | ⚠️ below floor | 0.25 (2×1.0÷8) | Sonnet 3.5 | Gemini 1.5 Pro | Radical paradigm shift, non-critical enhancement deferred from MVP. |
+| 50 | [Agentic Observability Layer](#50-agentic-observability-layer) | ⚠️ below floor | 0.25 (8×0.25÷8) | Sonnet 3.5 | Gemini 1.5 Pro | Architectural shift; high effort. Decay 0.25 from 2 shipped observability items (#55, #56). |
 | 34 | [Add Semantic Routing (semantic_match)](#34-add-semantic-routing-semantic_match) | ⚠️ below floor | 0.175 (7×0.125÷5) | Sonnet 3.5 | Gemini 1.5 Pro | Natively understands intent, replacing brittle traditional conditional routing and regexes. Re-scored 2026-07-23: same "LLM-backed runtime primitive" theme as shipped #26/#35/#36 (3 prior ships → decay 0.125, was uncounted at 1.0). |
+| 57 | [`(neural_circuit)` Runtime Primitive](#57-neural_circuit-runtime-primitive) | ⚠️ below floor | 0.15 (6×0.125÷5) | Sonnet 3.5 | Gemini 1.5 Pro | LLM-backed runtime primitive (3 prior ships → decay 0.125). |
+| 51 | [Ephemeral Neural Circuits](#51-ephemeral-neural-circuits) | ⚠️ below floor | 0.14 (7×0.125÷6) | Sonnet 3.5 | Gemini 1.5 Pro | LLM-backed runtime primitive (3 prior ships → decay 0.125). |
 | 40 | [Add Auto-Mutating Runtime](#40-add-auto-mutating-runtime) | ⚠️ below floor | 0.12 (1×1.0÷8) | Sonnet 3.5 | Gemini 1.5 Pro | Highly experimental runtime evolution; deferred per strict MVP boundaries. |
 | 37 | [Add Just-In-Time Function Generation (lazy_synthesize)](#37-add-just-in-time-function-generation-lazy_synthesize) | ⚠️ below floor | 0.089 (5×0.125÷7) | Sonnet 3.5 | Gemini 1.5 Pro | Defers boilerplate generation to runtime, allowing AI to focus only on high-level logic. Re-scored 2026-07-23: at runtime it would itself call an LLM to synthesize code, placing it in the same "LLM-backed runtime primitive" theme as shipped #26/#35/#36 (3 prior ships → decay 0.125, was uncounted at 1.0). |
-
 ## Details
 
 ### 48. Add CLI flag for output directory
@@ -366,6 +373,8 @@ As Zero matures past transpilation into Go and JS, the ultimate objective is to 
 | 54 | **WebAssembly (Wasm) Backend Prototype** | Pending | 1.00 (7×1.0÷7) | First step after #53. |
 | 57 | **`(neural_circuit)` Runtime Primitive** | ⚠️ below floor | 0.15 (6×0.125÷5) | LLM-backed runtime primitive (3 prior ships → decay 0.125). Scored below 0.5 floor. |
 | 51 | **Ephemeral Neural Circuits** | ⚠️ below floor | 0.14 (7×0.125÷6) | LLM-backed runtime primitive (3 prior ships → decay 0.125). Scored below 0.5 floor. |
+
+**Groom note (2026-07-23):** This table's open rows (#49-54, 57, 59) were moved to the main Ranked Backlog table and re-scored based on theme decay. Treat the main Ranked Backlog table as the single source of truth for open work.
 
 ### 53. Decouple AST from Go Codegen (IR Abstraction)
 * **Description:** Right now, `zero.go` parses an S-expression and immediately spits out a Go string. We need to introduce a middle layer (an IR graph) so we can support multiple backends.
