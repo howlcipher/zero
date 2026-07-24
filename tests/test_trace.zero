@@ -1,0 +1,5 @@
+(cli_app
+	(let (a 42)
+		(trace a)
+	)
+)

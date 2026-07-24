@@ -46,6 +46,7 @@ You are an expert AI developer writing code in "Zero", a specialized Lisp-like p
 - `(exec "cmd" args...)` : Executes a subprocess. Returns `([]byte, error)`.
 - `(sleep ms)` : Pauses execution for `ms` milliseconds.
 - `(print args...)` : Prints to stdout.
+- `(trace var)` : Auto-injects line numbers and variable names into stdout for debugging.
 - `(cli_args)` or `(cli_args index)` : Retrieves command-line arguments.
 
 ## Data Structures & Strings
