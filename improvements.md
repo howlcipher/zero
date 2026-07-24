@@ -355,7 +355,7 @@ As Zero matures past transpilation into Go and JS, the ultimate objective is to 
 
 | # | Improvement | Status | Score | AI Rationale |
 | --- | --- | --- | --- | --- |
-| 58 | **Crash-State Serialization** | Pending | 2.33 (7×1.0÷3) | High value self-healing foundation, low effort. |
+| 58 | **Crash-State Serialization** | Done (2026-07-23) | 2.33 (7×1.0÷3) | High value self-healing foundation, low effort. |
 | 55 | **Native Telemetry Injection** | Pending | 1.50 (6×1.0÷4) | Observability requisite; compiler hook injection. |
 | 56 | **Standalone Observer Agent (`observer.py`)** | Pending | 1.40 (7×1.0÷5) | Standalone daemon; independent effort from transpiler. |
 | 53 | **Decouple AST from Go Codegen (IR Abstraction)** | Pending | 1.33 (8×1.0÷6) | Requisite for pure binary generation. High effort refactor. |
@@ -390,6 +390,7 @@ As Zero matures past transpilation into Go and JS, the ultimate objective is to 
 ### 58. Crash-State Serialization
 * **Description:** Wrap the generated Go application in a global recovery block. On panic, dump all local variables and call stacks to disk before exiting.
 * **Impact:** 8/10 (Allows the AI to see the exact state of the crash without human repro steps).
+* **Done (2026-07-23):** Implemented global panic handler in generated Go code that captures stack traces and writes them to `crash.json`. Verified via native `zero_test.go`.
 
 ### 59. Auto-Patching Loop
 * **Description:** The holy grail of self-healing. When `observer.py` detects a crash dump from #58, it writes a patch to the `.zero` file, runs `go test`, and automatically restarts the service.
