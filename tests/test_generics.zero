@@ -1,0 +1,15 @@
+(cli_app
+  (defun identity (x)
+    (type_param T)
+    (type_hint x T)
+    (type_hint return T)
+    (return x)
+  )
+  (test "Generics work"
+    (let (res (call identity "hello"))
+      (if (!= res "hello")
+        (print "failed")
+      )
+    )
+  )
+)
