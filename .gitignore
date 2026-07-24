@@ -4,6 +4,8 @@ hello
 server.go
 server_test.go
 app.zero
+zero
+servercheck
 
 # Go modules
 vendor/
