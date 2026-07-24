@@ -386,27 +386,47 @@ func generateCode(node *Node) (string, string) {
 			name := handlerNode.Children[1].Value
 			argsNode := handlerNode.Children[2]
 
+			returnType := "string"
+			bodyStartIndex := 3
+			if len(handlerNode.Children) > 4 && handlerNode.Children[3].Type == "SYMBOL" {
+				returnType = handlerNode.Children[3].Value
+				bodyStartIndex = 4
+			}
+
 			typeHints := make(map[string]string)
-			for j := 3; j < len(handlerNode.Children)-1; j++ {
+			for j := bodyStartIndex; j < len(handlerNode.Children)-1; j++ {
 				cfgNode := handlerNode.Children[j]
 				if cfgNode.Type == "List" && len(cfgNode.Children) >= 3 && cfgNode.Children[0].Value == "type_hint" {
 					varName := cfgNode.Children[1].Value
 					varType := cfgNode.Children[2].Value
 					typeHints[varName] = varType
+				} else if cfgNode.Type == "List" && len(cfgNode.Children) >= 1 && cfgNode.Children[0].Value == "type_hints" {
+					for k := 1; k < len(cfgNode.Children); k++ {
+						hintPair := cfgNode.Children[k]
+						if hintPair.Type == "List" && len(hintPair.Children) >= 2 {
+							typeHints[hintPair.Children[0].Value] = hintPair.Children[1].Value
+						}
+					}
 				}
 			}
 
 			var argsList []string
 			for _, arg := range argsNode.Children {
+				var argName string
 				argType := "string"
-				if t, ok := typeHints[arg.Value]; ok {
+				if arg.Type == "List" && len(arg.Children) >= 2 {
+					argName = arg.Children[0].Value
+					argType = arg.Children[1].Value
+				} else {
+					argName = arg.Value
+				}
+				if t, ok := typeHints[argName]; ok {
 					argType = t
 				}
-				argsList = append(argsList, arg.Value+" "+argType)
+				argsList = append(argsList, argName+" "+argType)
 			}
 			argsStr := strings.Join(argsList, ", ")
 
-			returnType := "string"
 			if t, ok := typeHints["return"]; ok {
 				returnType = t
 			}
@@ -1030,19 +1050,25 @@ func generateStatementRaw(node *Node, reqVar string, depth int) string {
 			reportError("to_int expects (to_int val)", node.Line, node.Column)
 		}
 		valStr := generateStatement(node.Children[1], reqVar, depth+1)
-		return fmt.Sprintf("strconv.Atoi(%s)", valStr)
+		return fmt.Sprintf("func() int { v, _ := strconv.Atoi(%s); return v }()", valStr)
 	} else if head == "to_float" {
 		if len(node.Children) != 2 {
 			reportError("to_float expects (to_float val)", node.Line, node.Column)
 		}
 		valStr := generateStatement(node.Children[1], reqVar, depth+1)
-		return fmt.Sprintf("strconv.ParseFloat(%s, 64)", valStr)
-	} else if head == "to_string" || head == "bytes_to_string" {
+		return fmt.Sprintf("func() float64 { v, _ := strconv.ParseFloat(%s, 64); return v }()", valStr)
+	} else if head == "bytes_to_string" {
 		if len(node.Children) != 2 {
-			reportError(fmt.Sprintf("%s expects 1 argument", head), node.Line, node.Column)
+			reportError("bytes_to_string expects 1 argument", node.Line, node.Column)
 		}
 		valStr := generateStatement(node.Children[1], reqVar, depth+1)
 		return fmt.Sprintf("string(%s)", valStr)
+	} else if head == "to_string" {
+		if len(node.Children) != 2 {
+			reportError("to_string expects 1 argument", node.Line, node.Column)
+		}
+		valStr := generateStatement(node.Children[1], reqVar, depth+1)
+		return fmt.Sprintf("fmt.Sprint(%s)", valStr)
 	} else if head == "str_split" {
 		if len(node.Children) != 3 {
 			reportError("str_split expects (str_split s sep)", node.Line, node.Column)
