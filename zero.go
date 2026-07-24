@@ -1063,7 +1063,7 @@ func emitGoIR(ir *IRNode, reqVar string, depth int) string {
 			if kid.Type == "STRING" {
 				items = append(items, fmt.Sprintf("%q", kid.Value))
 			} else {
-				items = append(items, kid.Value)
+				items = append(items, generateExpression(kid, reqVar, depth+1))
 			}
 		}
 		return fmt.Sprintf("[]string{%s}", strings.Join(items, ", "))
@@ -1080,6 +1080,8 @@ func emitGoIR(ir *IRNode, reqVar string, depth int) string {
 			v := kid.Children[1].Value
 			if kid.Children[1].Type == "STRING" {
 				v = fmt.Sprintf("%q", v)
+			} else {
+				v = generateExpression(kid.Children[1], reqVar, depth+1)
 			}
 			pairs = append(pairs, fmt.Sprintf("%s: %s", k, v))
 		}
@@ -1332,7 +1334,7 @@ func generateStatementRaw(node *Node, reqVar string, depth int) string {
 						if valNode.Children[j].Type == "STRING" {
 							items = append(items, fmt.Sprintf("%q", valNode.Children[j].Value))
 						} else {
-							items = append(items, valNode.Children[j].Value)
+							items = append(items, generateExpression(valNode.Children[j], reqVar, depth+1))
 						}
 					}
 					valStr = fmt.Sprintf("[]string{%s}", strings.Join(items, ", "))
@@ -1348,6 +1350,8 @@ func generateStatementRaw(node *Node, reqVar string, depth int) string {
 							v := pair.Children[1].Value
 							if pair.Children[1].Type == "STRING" {
 								v = fmt.Sprintf("%q", v)
+							} else {
+								v = generateExpression(pair.Children[1], reqVar, depth+1)
 							}
 							pairs = append(pairs, fmt.Sprintf("%s: %s", k, v))
 						}
