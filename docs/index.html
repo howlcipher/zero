@@ -56,6 +56,7 @@
                 <li><strong>Compiles to JavaScript too:</strong> Swap the root block to <code>(web_app ...)</code> to target the browser with the same grammar &mdash; DOM primitives (<code>dom_query</code>, <code>on_event</code>, <code>set_text</code>) plus every existing logic primitive, unchanged.</li>
                 <li><strong>Built-in Observability:</strong> Every generated program auto-injects call tracing (<code>telemetry.jsonl</code>) and crash-state serialization (<code>crash.json</code> with a full stack trace on panic) with zero extra syntax, plus a standalone Python observer agent (<code>observer.py</code>) that watches for anomalies live.</li>
                 <li><strong>Go Generics:</strong> <code>(type_param T)</code> on a <code>defun</code> generates a real Go generic function instead of falling back to <code>any</code> and runtime type assertions.</li>
+                <li><strong>Direct AST Execution:</strong> <code>-run</code> interprets a <code>cli_app</code> script directly &mdash; no Go text ever generated, no <code>go build</code>/<code>go run</code> invoked &mdash; Phase 1 toward Zero's eventual goal of bypassing text-based codegen entirely (see the project's <a href="https://github.com/howlcipher/zero/blob/main/README.md#project-roadmap--the-end-goal" target="_blank">roadmap</a>).</li>
             </ul>
         </section>
 

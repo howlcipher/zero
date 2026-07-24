@@ -23,7 +23,7 @@ Zero has evolved from a local script into a standalone transpiler toolchain. To 
 Beyond simple language mechanics, the ultimate **End Goal** of Zero is to completely bypass human-readable code. If AI is writing the code, we no longer need text-based syntaxes (like Go or JS transpilers) designed for human eyes. 
 
 The roadmap to this future includes:
-- **Direct Neural Bytecode Synthesis:** Outputting raw machine instructions or Neural Intermediate Representation (NIR) directly.
+- **Direct Neural Bytecode Synthesis:** Outputting raw machine instructions or Neural Intermediate Representation (NIR) directly. **Phase 1 shipped 2026-07-24**: a direct AST interpreter (`-run`, see [How to Run](#how-to-run)) proves the core premise — real Zero programs already execute with zero Go/JS text ever generated — for a bounded node subset. Full design, current coverage, and the Phase 2/3 plan (a real bytecode format, then an LLM emitting it directly) are in `docs/direct_execution_design.md`.
 - **Latent Execution:** Processing inputs and outputs directly through the model's neural pathways, skipping compilation entirely.
 - **Ephemeral Neural Circuits:** Generating highly specialized micro-models for a single task that delete themselves after execution.
 - **Agentic Observability:** Replacing traditional debugging with observer AI models that monitor system behavior, analyze full context traces, and trigger self-healing workflows autonomously.
@@ -193,6 +193,13 @@ Zero can automatically inject context variables into function calls within a spe
    # 3. Run the binary
    ./hello
    ```
+
+3. **Interpret Directly (no Go compilation step)**:
+   For a `cli_app` script using a supported subset of the language (control flow, functions, math/string/collection ops — see `docs/direct_execution_design.md` for the exact coverage), `-run` executes the script's AST directly, with no `server.go` ever written and no `go build`/`go run` invoked:
+   ```bash
+   go run zero.go -run cli_hello.zero
+   ```
+   This is Phase 1 of the "bypass text-based codegen entirely" end goal below — see [Project Roadmap](#project-roadmap--the-end-goal). `http_server`/`web_app` scripts and a handful of primitives that depend on `try_let` (`read_file`, `write_file`, `db_connect`, etc.) aren't supported under `-run` yet and produce a clear error naming the unsupported node.
 
 The server will spin up on `http://localhost:8080`.
 
