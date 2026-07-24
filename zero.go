@@ -1202,8 +1202,8 @@ func generateStatementRaw(node *Node, reqVar string, depth int) string {
 		fmt.Fprint(w, %q)`, contentType, status, resBody)
 		}
 	} else if head == "let" {
-		if len(node.Children) < 3 {
-			reportError("let expects (let (var val) body)", node.Line, node.Column)
+		if len(node.Children) != 3 {
+			reportError("let expects (let (var val) body) — wrap multiple body statements in (do ...)", node.Line, node.Column)
 		}
 		var letPrefix strings.Builder
 		letPrefix.WriteString("		{\n")
@@ -1853,8 +1853,8 @@ func generateJSStatementRaw(node *Node, reqVar string, depth int) string {
 		return emitJSIR(ir, reqVar, depth)
 	}
 	if head == "let" {
-		if len(node.Children) < 3 {
-			reportError("let expects (let (var val) body)", node.Line, node.Column)
+		if len(node.Children) != 3 {
+			reportError("let expects (let (var val) body) — wrap multiple body statements in (do ...)", node.Line, node.Column)
 		}
 		var letPrefix strings.Builder
 		letPrefix.WriteString("{\n")

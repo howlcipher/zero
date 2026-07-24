@@ -53,6 +53,9 @@
                 <li><strong>Security & Middleware:</strong> Protect routes with HTTP <code>middleware</code>, pipeline control (<code>next</code>), and environment variable reads (<code>env</code>).</li>
                 <li><strong>Implicit Context Threading:</strong> Built-in <code>(with_context ...)</code> macro that implicitly injects variables into function calls, reducing the cognitive load for AIs to remember to pass state like request objects and database connections down the call stack.</li>
                 <li><strong>Native Unit Test Blocks:</strong> Accelerates Test-Driven Development (TDD) for AIs with a native <code>(test "description" ...)</code> block that seamlessly compiles to Go test files.</li>
+                <li><strong>Compiles to JavaScript too:</strong> Swap the root block to <code>(web_app ...)</code> to target the browser with the same grammar &mdash; DOM primitives (<code>dom_query</code>, <code>on_event</code>, <code>set_text</code>) plus every existing logic primitive, unchanged.</li>
+                <li><strong>Built-in Observability:</strong> Every generated program auto-injects call tracing (<code>telemetry.jsonl</code>) and crash-state serialization (<code>crash.json</code> with a full stack trace on panic) with zero extra syntax, plus a standalone Python observer agent (<code>observer.py</code>) that watches for anomalies live.</li>
+                <li><strong>Go Generics:</strong> <code>(type_param T)</code> on a <code>defun</code> generates a real Go generic function instead of falling back to <code>any</code> and runtime type assertions.</li>
             </ul>
         </section>
 

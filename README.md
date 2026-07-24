@@ -411,4 +411,84 @@ In addition to struct declarations, Zero allows parsing JSON payloads into typed
 )
 ```
 
+### Type Parameters (Go Generics)
+
+`(type_param T)` inside a `defun`, combined with `type_hint`, generates a real Go generic function (`func name[T any](...)`) instead of falling back to `any` and runtime type assertions.
+
+```lisp
+(cli_app
+  (defun identity (x)
+    (type_param T)
+    (type_hint x T)
+    (type_hint return T)
+    (return x)
+  )
+  (test "Generics work"
+    (let (res (call identity "hello"))
+      (if (!= res "hello")
+        (print "failed")
+      )
+    )
+  )
+)
+```
+
+### Output Directory
+
+By default the transpiler writes `server.go`/`server_test.go` (or `app.js`/`app.test.js` for `web_app`, see below) into the current directory. Pass `-o <dir>` to write elsewhere — useful for keeping a workspace clean or transpiling multiple `.zero` files without them overwriting each other. Run both commands from the repo root, since generated code imports the local `zero/observer` module by path:
+
+```bash
+go run zero.go -o build/ hello.zero
+go build -o build/hello build/server.go
+```
+
+### Observability: Tracing, Crash Dumps & the Observer Agent
+
+Every generated Go program includes three layers of built-in observability with no extra syntax required:
+
+1. **Native telemetry injection** — the transpiler automatically wraps every `defun`, `route`, `middleware`, and `spawn` block with `defer observer.Trace(...)()`, which logs a JSON `{"event":"enter"/"exit", "func":..., "vars":...}` line per call to `telemetry.jsonl`.
+2. **Crash-state serialization** — every generated `main()` wraps execution in a global `recover()`. On an unhandled panic, the error and full stack trace are dumped to `crash.json` before the process exits, so an AI debugging the failure has the exact crash state without needing a human to reproduce it.
+3. **Standalone Observer Agent** (`observer.py`) — a Python daemon that tails `telemetry.jsonl` in real time and asks a local LLM (via Ollama) to flag anomalous behavior:
+   ```bash
+   ollama serve
+   python observer.py
+   ```
+   Run it alongside a Zero-generated binary to get live anomaly flags as the program executes.
+
+You can also manually inject a trace point mid-function with `(trace var)`, which prints the variable's name, value, and source line — see [Automation and Advanced Control Flow](#automation-and-advanced-control-flow) above.
+
+### Compiling to JavaScript
+
+The same Zero grammar can target the browser instead of Go: use `(web_app ...)` as the root block instead of `(http_server ...)`/`(cli_app ...)`. This unlocks browser-only primitives — `(dom_query selector)`, `(on_event el "event" (lambda (e) body))`, `(set_text el val)`, `(set_attr el name val)` — while reusing every other primitive (`let`, `if`, `for`, `defun`, `fetch`, `try_let`, math/logic operators) unchanged. `(test ...)` blocks compile to a Node.js test file (`node --test`) instead of a Go `_test.go` file.
+
+```lisp
+(web_app
+  (defun increment (n)
+    (return (+ n 1))
+  )
+
+  (on_event (dom_query "#btn") "click" (lambda (e)
+    (let (count 0)
+      (do
+        (set count (call increment count))
+        (set_text (dom_query "#label") count)
+      )
+    )
+  ))
+
+  (test "increment works"
+    (if (!= (call increment 1) 2)
+      (print "failed")
+    )
+  )
+)
+```
+
+```bash
+go run zero.go counter.zero   # writes app.js and app.test.js
+node --test app.test.js
+```
+
+HTML and CSS are intentionally out of scope — Zero's constrained-grammar/hallucination-reduction pitch targets application *logic*, where LLMs reliably hallucinate; markup and styling don't share that failure mode and are better left native.
+
 

@@ -1,0 +1,18 @@
+(cli_app
+  (let (count 0)
+    (do
+      (set count 1)
+      (print count)
+    )
+  )
+  (test "let requires exactly one body form, wrapped in do for multiple statements"
+    (let (n 5)
+      (do
+        (set n (+ n 1))
+        (if (!= n 6)
+          (print "failed")
+        )
+      )
+    )
+  )
+)
