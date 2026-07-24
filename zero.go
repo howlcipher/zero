@@ -895,6 +895,10 @@ func lowerShared(node *Node) (*IRNode, bool) {
 			reportError("list_get expects (list_get list idx)", node.Line, node.Column)
 		}
 		return &IRNode{Kind: "list_get", Kids: node.Children[1:]}, true
+	case "list":
+		return &IRNode{Kind: "list", Kids: node.Children[1:]}, true
+	case "dict":
+		return &IRNode{Kind: "dict", Kids: node.Children[1:]}, true
 	case "print":
 		return &IRNode{Kind: "print", Kids: node.Children[1:]}, true
 	}
@@ -1053,6 +1057,33 @@ func emitGoIR(ir *IRNode, reqVar string, depth int) string {
 		}
 		idxStr := generateStatement(ir.Kids[1], reqVar, depth+1)
 		return fmt.Sprintf("func() string { _i, _ := strconv.Atoi(fmt.Sprint(%s)); if _i >= 0 && _i < len(%s) { return %s[_i] }; return \"\" }()", idxStr, listNode.Value, listNode.Value)
+	case "list":
+		var items []string
+		for _, kid := range ir.Kids {
+			if kid.Type == "STRING" {
+				items = append(items, fmt.Sprintf("%q", kid.Value))
+			} else {
+				items = append(items, kid.Value)
+			}
+		}
+		return fmt.Sprintf("[]string{%s}", strings.Join(items, ", "))
+	case "dict":
+		var pairs []string
+		for _, kid := range ir.Kids {
+			if kid.Type != "List" || len(kid.Children) != 2 {
+				reportError("dict expects (k v) pairs", kid.Line, kid.Column)
+			}
+			k := kid.Children[0].Value
+			if kid.Children[0].Type == "STRING" {
+				k = fmt.Sprintf("%q", k)
+			}
+			v := kid.Children[1].Value
+			if kid.Children[1].Type == "STRING" {
+				v = fmt.Sprintf("%q", v)
+			}
+			pairs = append(pairs, fmt.Sprintf("%s: %s", k, v))
+		}
+		return fmt.Sprintf("map[string]string{%s}", strings.Join(pairs, ", "))
 	case "print":
 		var args []string
 		for _, kid := range ir.Kids {
@@ -1157,6 +1188,35 @@ func emitJSIR(ir *IRNode, reqVar string, depth int) string {
 		listNode := ir.Kids[0]
 		idxStr := generateJSStatementRaw(ir.Kids[1], reqVar, depth+1)
 		return fmt.Sprintf("(%s[%s] ?? \"\")", listNode.Value, idxStr)
+	case "list":
+		var items []string
+		for _, kid := range ir.Kids {
+			if kid.Type == "STRING" {
+				items = append(items, fmt.Sprintf("%q", kid.Value))
+			} else {
+				items = append(items, generateJSExpression(kid, reqVar, depth+1))
+			}
+		}
+		return fmt.Sprintf("[%s]", strings.Join(items, ", "))
+	case "dict":
+		var pairs []string
+		for _, kid := range ir.Kids {
+			if kid.Type != "List" || len(kid.Children) != 2 {
+				reportError("dict expects (k v) pairs", kid.Line, kid.Column)
+			}
+			k := kid.Children[0].Value
+			if kid.Children[0].Type == "STRING" {
+				k = fmt.Sprintf("%q", k)
+			}
+			v := kid.Children[1].Value
+			if kid.Children[1].Type == "STRING" {
+				v = fmt.Sprintf("%q", v)
+			} else {
+				v = generateJSExpression(kid.Children[1], reqVar, depth+1)
+			}
+			pairs = append(pairs, fmt.Sprintf("%s: %s", k, v))
+		}
+		return fmt.Sprintf("{%s}", strings.Join(pairs, ", "))
 	case "print":
 		var args []string
 		for _, kid := range ir.Kids {
