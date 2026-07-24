@@ -1464,6 +1464,452 @@ func applyWithContext(node *Node, ctxVars []*Node) *Node {
 	return newNode
 }
 
+// JS Code Generator
+func generateJSCode(node *Node) (string, string) {
+	if node.Type != "List" || len(node.Children) == 0 {
+		reportError("Expected list at root", node.Line, node.Column)
+	}
+	head := node.Children[0]
+	if head.Type != "SYMBOL" || head.Value != "web_app" {
+		reportError("Expected web_app as root symbol", head.Line, head.Column)
+	}
+
+	var funcsCode string
+	var appCode string
+	var testCode string
+
+	for i := 1; i < len(node.Children); i++ {
+		handlerNode := node.Children[i]
+		if handlerNode.Type != "List" || len(handlerNode.Children) == 0 {
+			appCode += generateJSStatement(handlerNode, "", 0) + "\n"
+			continue
+		}
+
+		headVal := handlerNode.Children[0].Value
+
+		if headVal == "intent" {
+			continue
+		}
+
+		if headVal == "test" {
+			if len(handlerNode.Children) < 3 {
+				reportError(`test expects (test "description" body...)`, handlerNode.Line, handlerNode.Column)
+			}
+			descNode := handlerNode.Children[1]
+			if descNode.Type != "STRING" {
+				reportError("test description must be a string", descNode.Line, descNode.Column)
+			}
+			desc := descNode.Value
+			var testBodyCode string
+			for j := 2; j < len(handlerNode.Children); j++ {
+				testBodyCode += generateJSStatement(handlerNode.Children[j], "", 0) + "\n"
+			}
+			testCode += fmt.Sprintf("test(%q, async (t) => {\n%s\n});\n\n", desc, testBodyCode)
+			continue
+		}
+
+		if headVal == "defun" {
+			if len(handlerNode.Children) < 4 {
+				reportError("defun expects (defun name (args) body)", handlerNode.Line, handlerNode.Column)
+			}
+			name := handlerNode.Children[1].Value
+			argsNode := handlerNode.Children[2]
+
+			var argsList []string
+			for _, arg := range argsNode.Children {
+				argsList = append(argsList, arg.Value)
+			}
+			argsStr := strings.Join(argsList, ", ")
+
+			bodyNode := handlerNode.Children[len(handlerNode.Children)-1]
+			bodyCode := generateJSStatement(bodyNode, "", 0)
+			funcsCode += fmt.Sprintf("async function %s(%s) {\n%s\n}\n\n", name, argsStr, bodyCode)
+			continue
+		}
+
+		appCode += generateJSStatement(handlerNode, "", 0) + "\n"
+	}
+
+	code := funcsCode + appCode
+
+	if testCode != "" {
+		testCode = "const test = require('node:test');\n" +
+			"const assert = require('node:assert');\n\n" +
+			funcsCode + testCode
+	}
+
+	return code, testCode
+}
+
+func generateJSStatement(node *Node, reqVar string, depth int) string {
+	code := generateJSStatementRaw(node, reqVar, depth)
+	if node.Type != "List" || len(node.Children) == 0 {
+		return code
+	}
+	head := node.Children[0].Value
+	switch head {
+	case "return", "let", "do", "try_let", "spawn", "if", "print", "for", "sleep", "while", "match", "set", "call":
+		if node.Filename != "" {
+			return fmt.Sprintf("//line %s:%d\n%s", node.Filename, node.Line, code)
+		}
+	}
+	return code
+}
+
+func generateJSExpression(node *Node, reqVar string, depth int) string {
+	return generateJSStatementRaw(node, reqVar, depth)
+}
+
+func generateJSStatementRaw(node *Node, reqVar string, depth int) string {
+	if depth > 1000 {
+		reportError("AST too deep", node.Line, node.Column)
+	}
+	if node.Type == "STRING" {
+		return fmt.Sprintf("%q", node.Value)
+	}
+	if node.Type == "SYMBOL" || node.Type == "INT" {
+		return node.Value
+	}
+	if node.Type != "List" || len(node.Children) == 0 {
+		reportError("Expected list for statement", node.Line, node.Column)
+	}
+	head := node.Children[0].Value
+	if head == "intent" {
+		return ""
+	}
+	if head == "return" {
+		if len(node.Children) != 2 {
+			reportError("return expects (return val)", node.Line, node.Column)
+		}
+		valNode := node.Children[1]
+		return fmt.Sprintf("return %s;", generateJSStatementRaw(valNode, reqVar, depth+1))
+	} else if head == "let" {
+		if len(node.Children) < 3 {
+			reportError("let expects (let (var val) body)", node.Line, node.Column)
+		}
+		var letPrefix strings.Builder
+		letPrefix.WriteString("{\n")
+		declaredVars := make(map[string]bool)
+
+		curr := node
+		for curr.Type == "List" && len(curr.Children) == 3 && curr.Children[0].Value == "let" {
+			binds := curr.Children[1]
+			if binds.Type != "List" || len(binds.Children) != 2 {
+				reportError("let binding expects (var val)", binds.Line, binds.Column)
+			}
+			varName := binds.Children[0].Value
+			valNode := binds.Children[1]
+
+			var valStr string
+			if valNode.Type == "STRING" {
+				valStr = fmt.Sprintf("%q", valNode.Value)
+			} else if valNode.Type == "List" && len(valNode.Children) > 0 {
+				funcName := valNode.Children[0].Value
+				if funcName == "call" {
+					var args []string
+					for j := 2; j < len(valNode.Children); j++ {
+						if valNode.Children[j].Type == "STRING" {
+							args = append(args, fmt.Sprintf("%q", valNode.Children[j].Value))
+						} else {
+							args = append(args, generateJSExpression(valNode.Children[j], reqVar, depth+1))
+						}
+					}
+					valStr = fmt.Sprintf("(await %s(%s))", valNode.Children[1].Value, strings.Join(args, ", "))
+				} else if funcName == "list" {
+					var items []string
+					for j := 1; j < len(valNode.Children); j++ {
+						if valNode.Children[j].Type == "STRING" {
+							items = append(items, fmt.Sprintf("%q", valNode.Children[j].Value))
+						} else {
+							items = append(items, generateJSExpression(valNode.Children[j], reqVar, depth+1))
+						}
+					}
+					valStr = fmt.Sprintf("[%s]", strings.Join(items, ", "))
+				} else if funcName == "dict" {
+					var pairs []string
+					for j := 1; j < len(valNode.Children); j++ {
+						pair := valNode.Children[j]
+						if pair.Type == "List" && len(pair.Children) == 2 {
+							k := pair.Children[0].Value
+							if pair.Children[0].Type == "STRING" {
+								k = fmt.Sprintf("%q", k)
+							}
+							v := pair.Children[1].Value
+							if pair.Children[1].Type == "STRING" {
+								v = fmt.Sprintf("%q", v)
+							} else {
+								v = generateJSExpression(pair.Children[1], reqVar, depth+1)
+							}
+							pairs = append(pairs, fmt.Sprintf("%s: %s", k, v))
+						}
+					}
+					valStr = fmt.Sprintf("{%s}", strings.Join(pairs, ", "))
+				} else if funcName == "parse_json" {
+					bodyVar := valNode.Children[2].Value
+					valStr = fmt.Sprintf("JSON.parse(%s)", bodyVar)
+				} else {
+					valStr = generateJSStatementRaw(valNode, reqVar, depth+1)
+				}
+			} else {
+				valStr = generateJSStatementRaw(valNode, reqVar, depth+1)
+			}
+
+			if declaredVars[varName] {
+				letPrefix.WriteString(fmt.Sprintf("%s = %s;\n", varName, valStr))
+			} else {
+				letPrefix.WriteString(fmt.Sprintf("let %s = %s;\n", varName, valStr))
+				declaredVars[varName] = true
+			}
+			curr = curr.Children[2]
+		}
+		bodyCode := generateJSStatement(curr, reqVar, depth+1)
+		return fmt.Sprintf("%s%s\n}", letPrefix.String(), bodyCode)
+	} else if head == "try_let" {
+		if len(node.Children) != 4 {
+			reportError("try_let expects (try_let (var val) (catch err catchBody) successBody)", node.Line, node.Column)
+		}
+		binds := node.Children[1]
+		varName := binds.Children[0].Value
+		valNode := binds.Children[1]
+
+		var valStr string
+		if valNode.Type == "List" && len(valNode.Children) > 0 && valNode.Children[0].Value == "parse_json" {
+			bodyVar := valNode.Children[2].Value
+			valStr = fmt.Sprintf("JSON.parse(%s)", bodyVar)
+		} else {
+			valStr = generateJSStatementRaw(valNode, reqVar, depth+1)
+		}
+
+		catchNode := node.Children[2]
+		errVar := catchNode.Children[1].Value
+		catchBodyCode := generateJSStatement(catchNode.Children[2], reqVar, depth+1)
+		successBodyCode := generateJSStatement(node.Children[3], reqVar, depth+1)
+
+		return fmt.Sprintf("{\n\tlet %s;\n\tlet %s = null;\n\ttry {\n\t\t%s = %s;\n\t} catch (e) {\n\t\t%s = e;\n\t}\n\tif (%s !== null) {\n\t\t%s\n\t} else {\n\t\t%s\n\t}\n}", varName, errVar, varName, valStr, errVar, errVar, catchBodyCode, successBodyCode)
+	} else if head == "dom_query" {
+		if len(node.Children) != 2 {
+			reportError("dom_query expects (dom_query selector)", node.Line, node.Column)
+		}
+		selector := generateJSStatementRaw(node.Children[1], reqVar, depth+1)
+		return fmt.Sprintf("document.querySelector(%s)", selector)
+	} else if head == "on_event" {
+		if len(node.Children) != 4 {
+			reportError("on_event expects (on_event el event lambda)", node.Line, node.Column)
+		}
+		el := generateJSStatementRaw(node.Children[1], reqVar, depth+1)
+		event := generateJSStatementRaw(node.Children[2], reqVar, depth+1)
+		lambda := node.Children[3]
+		if lambda.Type != "List" || len(lambda.Children) != 3 || lambda.Children[0].Value != "lambda" {
+			reportError("on_event expects a lambda", lambda.Line, lambda.Column)
+		}
+		args := lambda.Children[1].Children
+		argName := "e"
+		if len(args) > 0 {
+			argName = args[0].Value
+		}
+		body := generateJSStatement(lambda.Children[2], reqVar, depth+1)
+		return fmt.Sprintf("%s.addEventListener(%s, async (%s) => {\n%s\n})", el, event, argName, body)
+	} else if head == "set_text" {
+		if len(node.Children) != 3 {
+			reportError("set_text expects (set_text el val)", node.Line, node.Column)
+		}
+		el := generateJSStatementRaw(node.Children[1], reqVar, depth+1)
+		val := generateJSStatementRaw(node.Children[2], reqVar, depth+1)
+		return fmt.Sprintf("%s.textContent = %s", el, val)
+	} else if head == "set_attr" {
+		if len(node.Children) != 4 {
+			reportError("set_attr expects (set_attr el name val)", node.Line, node.Column)
+		}
+		el := generateJSStatementRaw(node.Children[1], reqVar, depth+1)
+		attr := generateJSStatementRaw(node.Children[2], reqVar, depth+1)
+		val := generateJSStatementRaw(node.Children[3], reqVar, depth+1)
+		return fmt.Sprintf("%s.setAttribute(%s, %s)", el, attr, val)
+	} else if head == "fetch" {
+		if len(node.Children) != 3 {
+			reportError("fetch expects (fetch url method)", node.Line, node.Column)
+		}
+		urlStr := generateJSStatementRaw(node.Children[1], reqVar, depth+1)
+		methodStr := generateJSStatementRaw(node.Children[2], reqVar, depth+1)
+		return fmt.Sprintf("(await fetch(%s, { method: %s }).then(r => r.text()))", urlStr, methodStr)
+	} else if head == "print" {
+		var args []string
+		for j := 1; j < len(node.Children); j++ {
+			args = append(args, generateJSStatementRaw(node.Children[j], reqVar, depth+1))
+		}
+		return fmt.Sprintf("console.log(%s)", strings.Join(args, ", "))
+	} else if head == "if" {
+		if len(node.Children) != 3 && len(node.Children) != 4 {
+			reportError("if expects (if cond then) or (if cond then else)", node.Line, node.Column)
+		}
+		condExpr := generateJSExpression(node.Children[1], reqVar, depth+1)
+		thenCode := generateJSStatement(node.Children[2], reqVar, depth+1)
+		if len(node.Children) == 3 {
+			return fmt.Sprintf("if (%s) {\n%s\n}", condExpr, thenCode)
+		}
+		elseCode := generateJSStatement(node.Children[3], reqVar, depth+1)
+		return fmt.Sprintf("if (%s) {\n%s\n} else {\n%s\n}", condExpr, thenCode, elseCode)
+	} else if head == "for" {
+		if len(node.Children) != 4 {
+			reportError("for expects (for item list body)", node.Line, node.Column)
+		}
+		itemNode := node.Children[1].Value
+		listNode := node.Children[2].Value
+		bodyCode := generateJSStatement(node.Children[3], reqVar, depth+1)
+		return fmt.Sprintf("for (let %s of %s) {\n%s\n}", itemNode, listNode, bodyCode)
+	} else if head == "while" {
+		if len(node.Children) != 3 {
+			reportError("while expects (while cond body)", node.Line, node.Column)
+		}
+		condExpr := generateJSExpression(node.Children[1], reqVar, depth+1)
+		bodyCode := generateJSStatement(node.Children[2], reqVar, depth+1)
+		return fmt.Sprintf("while (%s) {\n%s\n}", condExpr, bodyCode)
+	} else if head == "set" {
+		if len(node.Children) != 3 {
+			reportError("set expects (set var val)", node.Line, node.Column)
+		}
+		varStr := generateJSStatementRaw(node.Children[1], reqVar, depth+1)
+		valStr := generateJSStatementRaw(node.Children[2], reqVar, depth+1)
+		return fmt.Sprintf("%s = %s", varStr, valStr)
+	} else if head == "do" {
+		var stmts string
+		for j := 1; j < len(node.Children); j++ {
+			stmts += generateJSStatement(node.Children[j], reqVar, depth+1) + ";\n"
+		}
+		return fmt.Sprintf("{\n%s}", stmts)
+	} else if head == "match" {
+		if len(node.Children) < 3 {
+			reportError("match expects (match var (val body)...)", node.Line, node.Column)
+		}
+		varStr := generateJSStatementRaw(node.Children[1], reqVar, depth+1)
+		var casesStr string
+		for j := 2; j < len(node.Children); j++ {
+			caseNode := node.Children[j]
+			if caseNode.Type != "List" || len(caseNode.Children) != 2 {
+				reportError("match case expects (val body)", caseNode.Line, caseNode.Column)
+			}
+			caseValNode := caseNode.Children[0]
+			caseValStr := caseValNode.Value
+			if caseValNode.Type == "STRING" {
+				caseValStr = fmt.Sprintf("%q", caseValStr)
+			}
+			caseBodyCode := generateJSStatement(caseNode.Children[1], reqVar, depth+1)
+			if caseValNode.Type == "SYMBOL" && caseValStr == "default" {
+				casesStr += fmt.Sprintf("default:\n%s;\nbreak;\n", caseBodyCode)
+			} else {
+				casesStr += fmt.Sprintf("case %s:\n%s;\nbreak;\n", caseValStr, caseBodyCode)
+			}
+		}
+		return fmt.Sprintf("switch (%s) {\n%s}", varStr, casesStr)
+	} else if head == "+" || head == "-" || head == "*" || head == "/" || head == "<" || head == ">" || head == "<=" || head == ">=" || head == "and" || head == "or" || head == "==" || head == "!=" || head == "=" {
+		op := head
+		if op == "and" {
+			op = "&&"
+		}
+		if op == "or" {
+			op = "||"
+		}
+		if op == "=" {
+			op = "==="
+		}
+		if op == "==" {
+			op = "==="
+		}
+		if op == "!=" {
+			op = "!=="
+		}
+		arg1 := generateJSExpression(node.Children[1], reqVar, depth+1)
+		arg2 := generateJSExpression(node.Children[2], reqVar, depth+1)
+		return fmt.Sprintf("(%s %s %s)", arg1, op, arg2)
+	} else if head == "call" {
+		if len(node.Children) < 2 {
+			reportError("call expects (call func args...)", node.Line, node.Column)
+		}
+		funcName := node.Children[1].Value
+		var args []string
+		for j := 2; j < len(node.Children); j++ {
+			args = append(args, generateJSExpression(node.Children[j], reqVar, depth+1))
+		}
+		return fmt.Sprintf("(await %s(%s))", funcName, strings.Join(args, ", "))
+	} else if head == "spawn" {
+		if len(node.Children) != 2 {
+			reportError("spawn expects (spawn (lambda () body))", node.Line, node.Column)
+		}
+		lambdaNode := node.Children[1]
+		if lambdaNode.Type != "List" || len(lambdaNode.Children) != 3 || lambdaNode.Children[0].Value != "lambda" {
+			reportError("spawn expects a lambda", lambdaNode.Line, lambdaNode.Column)
+		}
+		bodyCode := generateJSStatement(lambdaNode.Children[2], reqVar, depth+1)
+		return fmt.Sprintf("(async () => {\n%s\n})()", bodyCode)
+	} else if head == "sleep" {
+		if len(node.Children) != 2 {
+			reportError("sleep expects (sleep ms)", node.Line, node.Column)
+		}
+		msStr := generateJSStatementRaw(node.Children[1], reqVar, depth+1)
+		return fmt.Sprintf("(await new Promise(r => setTimeout(r, %s)))", msStr)
+	} else if head == "to_int" || head == "to_float" {
+		if len(node.Children) != 2 {
+			reportError(fmt.Sprintf("%s expects 1 argument", head), node.Line, node.Column)
+		}
+		valStr := generateJSStatementRaw(node.Children[1], reqVar, depth+1)
+		if head == "to_int" {
+			return fmt.Sprintf("parseInt(%s, 10)", valStr)
+		}
+		return fmt.Sprintf("parseFloat(%s)", valStr)
+	} else if head == "to_string" || head == "bytes_to_string" {
+		if len(node.Children) != 2 {
+			reportError(fmt.Sprintf("%s expects 1 argument", head), node.Line, node.Column)
+		}
+		valStr := generateJSStatementRaw(node.Children[1], reqVar, depth+1)
+		return fmt.Sprintf("String(%s)", valStr)
+	} else if head == "str_split" {
+		if len(node.Children) != 3 {
+			reportError("str_split expects (str_split s sep)", node.Line, node.Column)
+		}
+		sStr := generateJSStatementRaw(node.Children[1], reqVar, depth+1)
+		sepStr := generateJSStatementRaw(node.Children[2], reqVar, depth+1)
+		return fmt.Sprintf("(%s).split(%s)", sStr, sepStr)
+	} else if head == "str_join" {
+		if len(node.Children) != 3 {
+			reportError("str_join expects (str_join list sep)", node.Line, node.Column)
+		}
+		listStr := generateJSStatementRaw(node.Children[1], reqVar, depth+1)
+		sepStr := generateJSStatementRaw(node.Children[2], reqVar, depth+1)
+		return fmt.Sprintf("(%s).join(%s)", listStr, sepStr)
+	} else if head == "regex_match" {
+		if len(node.Children) != 3 {
+			reportError("regex_match expects (regex_match pattern s)", node.Line, node.Column)
+		}
+		patStr := generateJSStatementRaw(node.Children[1], reqVar, depth+1)
+		sStr := generateJSStatementRaw(node.Children[2], reqVar, depth+1)
+		return fmt.Sprintf("new RegExp(%s).test(%s)", patStr, sStr)
+	} else if head == "append" {
+		if len(node.Children) != 3 {
+			reportError("append expects (append list item)", node.Line, node.Column)
+		}
+		listNode := node.Children[1]
+		itemStr := generateJSStatementRaw(node.Children[2], reqVar, depth+1)
+		return fmt.Sprintf("%s.push(%s)", listNode.Value, itemStr)
+	} else if head == "map_set" {
+		if len(node.Children) != 4 {
+			reportError("map_set expects (map_set dict key val)", node.Line, node.Column)
+		}
+		dictNode := node.Children[1]
+		keyStr := generateJSStatementRaw(node.Children[2], reqVar, depth+1)
+		valStr := generateJSStatementRaw(node.Children[3], reqVar, depth+1)
+		return fmt.Sprintf("%s[%s] = %s", dictNode.Value, keyStr, valStr)
+	} else if head == "map_delete" {
+		if len(node.Children) != 3 {
+			reportError("map_delete expects (map_delete dict key)", node.Line, node.Column)
+		}
+		dictNode := node.Children[1]
+		keyStr := generateJSStatementRaw(node.Children[2], reqVar, depth+1)
+		return fmt.Sprintf("delete %s[%s]", dictNode.Value, keyStr)
+	}
+
+	reportError(fmt.Sprintf("Unknown statement for JS: %s", head), node.Line, node.Column)
+	return ""
+}
+
 func main() {
 	if len(os.Args) < 2 {
 		reportError("Missing file argument", 0, 0)
@@ -1486,19 +1932,37 @@ func main() {
 	applyPatches(ast)
 	ast = applyWithContext(ast, nil)
 
-	goCode, testCode := generateCode(ast)
+	ast = applyWithContext(ast, nil)
 
-	err = os.WriteFile("server.go", []byte(goCode), 0644)
-	if err != nil {
-		reportError(fmt.Sprintf("Failed to write server.go: %v", err), 0, 0)
-	}
-
-	if testCode != "" {
-		err = os.WriteFile("server_test.go", []byte(testCode), 0644)
+	if ast != nil && ast.Type == "List" && len(ast.Children) > 0 && ast.Children[0].Type == "SYMBOL" && ast.Children[0].Value == "web_app" {
+		jsCode, testCode := generateJSCode(ast)
+		err = os.WriteFile("app.js", []byte(jsCode), 0644)
 		if err != nil {
-			reportError(fmt.Sprintf("Failed to write server_test.go: %v", err), 0, 0)
+			reportError(fmt.Sprintf("Failed to write app.js: %v", err), 0, 0)
+		}
+		if testCode != "" {
+			err = os.WriteFile("app.test.js", []byte(testCode), 0644)
+			if err != nil {
+				reportError(fmt.Sprintf("Failed to write app.test.js: %v", err), 0, 0)
+			}
+		} else {
+			os.Remove("app.test.js")
 		}
 	} else {
-		os.Remove("server_test.go")
+		goCode, testCode := generateCode(ast)
+
+		err = os.WriteFile("server.go", []byte(goCode), 0644)
+		if err != nil {
+			reportError(fmt.Sprintf("Failed to write server.go: %v", err), 0, 0)
+		}
+
+		if testCode != "" {
+			err = os.WriteFile("server_test.go", []byte(testCode), 0644)
+			if err != nil {
+				reportError(fmt.Sprintf("Failed to write server_test.go: %v", err), 0, 0)
+			}
+		} else {
+			os.Remove("server_test.go")
+		}
 	}
 }
