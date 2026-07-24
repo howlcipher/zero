@@ -4,6 +4,7 @@ package main
 
 import (
 	"encoding/json"
+	"flag"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -1937,23 +1938,28 @@ func generateJSStatementRaw(node *Node, reqVar string, depth int) string {
 }
 
 func main() {
-	if len(os.Args) < 2 {
+	outDir := flag.String("o", "", "output directory")
+	flag.Parse()
+
+	if flag.NArg() < 1 {
 		reportError("Missing file argument", 0, 0)
 	}
-	content, err := os.ReadFile(os.Args[1])
+	inputFile := flag.Arg(0)
+
+	content, err := os.ReadFile(inputFile)
 	if err != nil {
 		reportError(fmt.Sprintf("Cannot read file: %v", err), 0, 0)
 	}
 
 	lexer := NewLexer(string(content))
-	parser := NewParser(lexer, filepath.Base(os.Args[1]))
+	parser := NewParser(lexer, filepath.Base(inputFile))
 	ast := parser.parseExpression()
 
 	if parser.cur.Type != TokenEOF {
 		reportError("Unexpected tokens after EOF", parser.cur.Line, parser.cur.Column)
 	}
 
-	expandIncludes(ast, filepath.Dir(os.Args[1]), 0)
+	expandIncludes(ast, filepath.Dir(inputFile), 0)
 
 	applyPatches(ast)
 	ast = applyWithContext(ast, nil)
@@ -1962,33 +1968,40 @@ func main() {
 
 	if ast != nil && ast.Type == "List" && len(ast.Children) > 0 && ast.Children[0].Type == "SYMBOL" && ast.Children[0].Value == "web_app" {
 		jsCode, testCode := generateJSCode(ast)
-		err = os.WriteFile("app.js", []byte(jsCode), 0644)
+		
+		appFile := filepath.Join(*outDir, "app.js")
+		appTestFile := filepath.Join(*outDir, "app.test.js")
+		
+		err = os.WriteFile(appFile, []byte(jsCode), 0644)
 		if err != nil {
-			reportError(fmt.Sprintf("Failed to write app.js: %v", err), 0, 0)
+			reportError(fmt.Sprintf("Failed to write %s: %v", appFile, err), 0, 0)
 		}
 		if testCode != "" {
-			err = os.WriteFile("app.test.js", []byte(testCode), 0644)
+			err = os.WriteFile(appTestFile, []byte(testCode), 0644)
 			if err != nil {
-				reportError(fmt.Sprintf("Failed to write app.test.js: %v", err), 0, 0)
+				reportError(fmt.Sprintf("Failed to write %s: %v", appTestFile, err), 0, 0)
 			}
 		} else {
-			os.Remove("app.test.js")
+			os.Remove(appTestFile)
 		}
 	} else {
 		goCode, testCode := generateCode(ast)
 
-		err = os.WriteFile("server.go", []byte(goCode), 0644)
+		serverFile := filepath.Join(*outDir, "server.go")
+		serverTestFile := filepath.Join(*outDir, "server_test.go")
+
+		err = os.WriteFile(serverFile, []byte(goCode), 0644)
 		if err != nil {
-			reportError(fmt.Sprintf("Failed to write server.go: %v", err), 0, 0)
+			reportError(fmt.Sprintf("Failed to write %s: %v", serverFile, err), 0, 0)
 		}
 
 		if testCode != "" {
-			err = os.WriteFile("server_test.go", []byte(testCode), 0644)
+			err = os.WriteFile(serverTestFile, []byte(testCode), 0644)
 			if err != nil {
-				reportError(fmt.Sprintf("Failed to write server_test.go: %v", err), 0, 0)
+				reportError(fmt.Sprintf("Failed to write %s: %v", serverTestFile, err), 0, 0)
 			}
 		} else {
-			os.Remove("server_test.go")
+			os.Remove(serverTestFile)
 		}
 	}
 }
