@@ -18,7 +18,7 @@ See [`docs/language_write_cost_benchmark.md`](docs/language_write_cost_benchmark
 
 ## Project Roadmap & The End Goal
 
-Zero has evolved from a local script into a standalone transpiler toolchain. To truly achieve its goal of being an AI-first language, **Zero is slated to be moved into its own independent repository**. 
+Zero has evolved from a local script into a standalone transpiler toolchain, now living in its own independent repository ([howlcipher/zero](https://github.com/howlcipher/zero)).
 
 Beyond simple language mechanics, the ultimate **End Goal** of Zero is to completely bypass human-readable code. If AI is writing the code, we no longer need text-based syntaxes (like Go or JS transpilers) designed for human eyes. 
 
