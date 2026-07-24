@@ -1,0 +1,15 @@
+(cli_app
+  (import "github.com/mattn/go-sqlite3")
+  (schema "users" (column "id" "int") (column "name" "string"))
+  (db_connect db "sqlite3" "test.db")
+  (sql_query db "INSERT INTO users (id, name) VALUES (1, 'Alice')")
+  (try_let (rows (call db.Query "SELECT name FROM users"))
+    (catch err (print "Error:" err))
+    (do
+      (print "Success")
+    )
+  )
+  (do
+    (call sqlite3.Version)
+  )
+)

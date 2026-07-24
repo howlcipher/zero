@@ -246,7 +246,10 @@ func renameVar(node *Node, oldName, newName string) {
 }
 
 // Code Generator
+var currentSchemaDDLs []string
+
 func generateCode(node *Node) (string, string) {
+	currentSchemaDDLs = nil
 	if node.Type != "List" || len(node.Children) == 0 {
 		reportError("Expected list at root", node.Line, node.Column)
 	}
@@ -376,6 +379,59 @@ func generateCode(node *Node) (string, string) {
 				funcsCode += fmt.Sprintf("\t%s %s\n", fieldName, fieldType)
 			}
 			funcsCode += "}\n\n"
+			continue
+		}
+
+		if head == "schema" {
+			if len(handlerNode.Children) < 2 {
+				reportError("schema expects (schema \"tableName\" (column \"name\" \"type\")...)", handlerNode.Line, handlerNode.Column)
+			}
+			tableName := handlerNode.Children[1].Value
+			structName := tableName
+			if len(structName) > 0 {
+				structName = strings.ToUpper(structName[:1]) + structName[1:]
+			}
+			funcsCode += fmt.Sprintf("type %s struct {\n", structName)
+
+			var columns []string
+			for j := 2; j < len(handlerNode.Children); j++ {
+				colNode := handlerNode.Children[j]
+				if colNode.Type != "List" {
+					reportError("schema column expects (column name type) or (name type)", colNode.Line, colNode.Column)
+				}
+				var colName, colType string
+				if len(colNode.Children) == 3 && colNode.Children[0].Value == "column" {
+					colName = colNode.Children[1].Value
+					colType = colNode.Children[2].Value
+				} else if len(colNode.Children) == 2 {
+					colName = colNode.Children[0].Value
+					colType = colNode.Children[1].Value
+				} else {
+					reportError("schema column expects (column name type) or (name type)", colNode.Line, colNode.Column)
+				}
+
+				goFieldName := colName
+				if len(goFieldName) > 0 {
+					goFieldName = strings.ToUpper(goFieldName[:1]) + goFieldName[1:]
+				}
+				funcsCode += fmt.Sprintf("\t%s %s\n", goFieldName, colType)
+
+				sqlType := colType
+				if sqlType == "string" {
+					sqlType = "TEXT"
+				} else if sqlType == "int" {
+					sqlType = "INTEGER"
+				} else if sqlType == "float" || sqlType == "float64" {
+					sqlType = "REAL"
+				} else if sqlType == "bool" {
+					sqlType = "BOOLEAN"
+				}
+				columns = append(columns, fmt.Sprintf("%s %s", colName, sqlType))
+			}
+			funcsCode += "}\n\n"
+
+			ddl := fmt.Sprintf("CREATE TABLE IF NOT EXISTS %s (%s);", tableName, strings.Join(columns, ", "))
+			currentSchemaDDLs = append(currentSchemaDDLs, ddl)
 			continue
 		}
 
@@ -891,7 +947,11 @@ func generateStatementRaw(node *Node, reqVar string, depth int) string {
 		varName := node.Children[1].Value
 		driverNode := node.Children[2]
 		dsnNode := node.Children[3]
-		return fmt.Sprintf("		%s, _ := sql.Open(%q, %q)\n		_ = %s", varName, driverNode.Value, dsnNode.Value, varName)
+		code := fmt.Sprintf("		%s, _ := sql.Open(%q, %q)\n		_ = %s", varName, driverNode.Value, dsnNode.Value, varName)
+		for _, ddl := range currentSchemaDDLs {
+			code += fmt.Sprintf("\n		%s.Exec(%q)", varName, ddl)
+		}
+		return code
 	} else if head == "sql_query" {
 		if len(node.Children) != 3 {
 			reportError("sql_query expects (sql_query db query)", node.Line, node.Column)
